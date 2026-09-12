@@ -18,12 +18,22 @@ import { ModelStatus } from "./ModelStatus.jsx";
 
 const STARTERS = [
   { label: "Text", text: "Explain recursion like I'm 12." },
-  { label: "Image", text: "What's in this image?" },
-  { label: "Screenshot", text: "Look at this screenshot and explain what is wrong with the UI." },
-  { label: "Photo", text: "Summarize the important information in this photo." },
+  { label: "Image", text: "What's in this image?", needsImage: true },
+  { label: "Screenshot", text: "Look at this screenshot and explain what is wrong with the UI.", needsImage: true },
+  { label: "Photo", text: "Summarize the important information in this photo.", needsImage: true },
   { label: "Creative", text: "Turn this idea into a short story." },
   { label: "Coding", text: "Explain this code and suggest a simpler implementation." },
 ];
+
+function hasVisualAttachment(list) {
+  return list.some((item) => item.kind === "image" || item.kind === "video");
+}
+
+function promptNeedsImage(text) {
+  return /\b(this image|this screenshot|this photo|this picture|in this image|this menu)\b/i.test(
+    text,
+  );
+}
 
 export function Chat({ theme, onToggleTheme }) {
   const providerRef = useRef(null);
@@ -242,6 +252,10 @@ export function Chat({ theme, onToggleTheme }) {
     if ((!text && !attachments.length) || generating || phase !== "ready") return;
 
     const outgoingAttachments = attachments;
+    if (promptNeedsImage(text) && !hasVisualAttachment(outgoingAttachments)) {
+      setFileError("Attach an image first. Nothing was attached, so the model has nothing to look at.");
+      return;
+    }
     const media = outgoingAttachments.flatMap(attachmentToMediaParts);
     const userMessage = {
       id: crypto.randomUUID(),
@@ -457,6 +471,11 @@ export function Chat({ theme, onToggleTheme }) {
                       key={starter.label}
                       onClick={() => {
                         setDraft(starter.text);
+                        if (starter.needsImage && !hasVisualAttachment(attachments)) {
+                          setFileError("Attach an image, then send.");
+                        } else {
+                          setFileError(null);
+                        }
                       }}
                     >
                       <small>{starter.label}</small>
