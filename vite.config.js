@@ -10,10 +10,10 @@ export default defineConfig({
       injectRegister: false,
       includeAssets: ["favicon.svg", "icon-192.png", "icon-512.png"],
       manifest: {
-        name: "Built-in Chat",
-        short_name: "Built-in Chat",
+        name: "Local AI",
+        short_name: "Local AI",
         description:
-          "On-device AI chatbot using Chrome's built-in Prompt API. No API key.",
+          "Private on-device AI using Chrome's built-in Prompt API. No API key.",
         theme_color: "#1c1914",
         background_color: "#f4efe6",
         display: "standalone",
@@ -47,4 +47,8 @@ export default defineConfig({
     }),
   ],
   base: "./",
+  test: {
+    environment: "jsdom",
+    globals: false,
+  },
 });

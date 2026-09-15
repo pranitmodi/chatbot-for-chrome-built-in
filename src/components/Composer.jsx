@@ -180,7 +180,7 @@ export function Composer({
               onPickFiles(files);
             }
           }}
-          placeholder={disabled ? "Local AI is not ready yet" : "Message Built-in Chat"}
+          placeholder="Message…"
           disabled={disabled || generating || recording}
           rows={2}
           aria-label="Message"

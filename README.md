@@ -1,10 +1,10 @@
-# Built-in Chat
+# Local AI
 
-A static website that talks to **Chrome's built-in Prompt API** (`LanguageModel`) and runs the on-device model in the user's browser.
+A static website and optional Chrome extension for **private, on-device AI** using Chrome's built-in Prompt API (`LanguageModel` / Gemini Nano).
 
-There is no AI backend, no OpenAI / Anthropic / Gemini API key, and no account. A user can open the site in a supported Chrome environment and chat.
+There is no AI backend, no OpenAI / Anthropic / Gemini API key, and no account. Chat, notes, memory, and page tools run in the browser when Local AI is active.
 
-This app doesn't send your prompts to our AI server. Images, audio, and sampled video frames stay in the browser for inference. Do not read that as "nothing ever leaves your device" — Chrome may still download the on-device model, and the browser itself has its own network behavior.
+AI processing happens on your device when Local AI is active. This app doesn't send your prompts to our AI server. Do not read that as "nothing ever leaves your device" — Chrome may still download the on-device model, and the browser itself has its own network behavior.
 
 ## Why there is no AI API key
 
@@ -51,6 +51,7 @@ If the API is missing or `availability()` returns `unavailable`, the UI shows a 
 ```bash
 npm install
 npm run dev
+npm test
 ```
 
 Open the printed localhost URL in Chrome.
@@ -182,9 +183,31 @@ If `LanguageModel` is missing or availability is `unavailable`, chat is disabled
 ## Privacy architecture
 
 - Prompts go to Chrome's on-device Prompt API from this origin, not to a server we operate.
-- Attachments are read with `File` / `Blob` APIs, resized locally, and revoked when removed or when the chat is reset.
-- Conversations are not persisted to a backend. Refreshing the page starts over.
-- The in-app claim is: **This app doesn't send your prompts to our AI server.** Broader claims such as "nothing ever leaves your device" are not used.
+- Attachments are read with `File` / `Blob` APIs, resized locally, and stored as IndexedDB Blobs on this device only.
+- Conversations, notes, and memories persist in IndexedDB on this browser profile. Export/import is JSON you control. There is no account backend.
+- The in-app claim is: **AI processing happens on your device when Local AI is active.** Broader claims such as "nothing ever leaves your device" are not used.
+
+## Chrome extension
+
+The Manifest V3 extension in `extension/` extracts the current page or selected text and opens this app. It does not fork a second Prompt API implementation.
+
+1. Open `chrome://extensions`
+2. Enable Developer mode → Load unpacked → choose `extension/`
+3. Set the App URL in the popup (default `http://127.0.0.1:5173/` locally, or your HTTPS deploy)
+4. Select text → right-click → Explain / Summarize / Rewrite / Ask Local AI
+5. Shortcut: `Ctrl/Cmd+Shift+Space` opens the extension popup (and the same shortcut focuses chat in the app)
+
+If an extension page cannot create `LanguageModel`, inference still happens in the PWA origin. The extension will not fake local inference.
+
+## Keyboard shortcut
+
+In the installed app or localhost tab: `Ctrl/Cmd+Shift+Space` opens Chat.
+
+## Tests
+
+```bash
+npm test
+```
 
 ## Limitations
 
@@ -198,27 +221,13 @@ If `LanguageModel` is missing or availability is `unavailable`, chat is disabled
 
 ```text
 src/
-  ai/
-    types.js
-    chromeLocal.js    # LanguageModel wrapper (the only Prompt API calls)
-    multimodal.js
-    markdown.js
-    systemPrompt.js
-  components/
-    App.jsx
-    Chat.jsx
-    Message.jsx
-    Composer.jsx
-    AttachmentPreview.jsx
-    ModelStatus.jsx
-    CompatibilityPanel.jsx
-    CameraCapture.jsx
-    InstallApp.jsx
-    AttachmentThumb.jsx
-    ComposerToolButton.jsx
-  pwa.js
-  styles/index.css
-  main.jsx
+  ai/           provider, capabilities, chrome availability/session/streaming, prompts
+  storage/      IndexedDB repositories (conversations, notes, memories, search)
+  page/         page extraction (untrusted data)
+  features/     memory, chat context, navigation, dedicated Chrome APIs
+  components/   shell, chat, tools, notes, memory, status
+  hooks/useLocalAi.js
+extension/      Manifest V3 popup, content script, context menus
 ```
 
-UI code talks to `ChromeLocalProvider` only. That class is the current `AIProvider` implementation; a remote provider is intentionally not included.
+UI code talks to `ChromeLocalProvider` (`src/ai/provider.js`) only. Prompt API calls stay in `src/ai/chrome/`. A remote provider is intentionally not included.

@@ -61,7 +61,7 @@ function Avatar({ role }) {
   );
 }
 
-export function Message({ message }) {
+export function Message({ message, onSaveNote }) {
   const isUser = message.role === "user";
   const html = !isUser && message.text ? renderMarkdown(message.text) : "";
 
@@ -82,6 +82,11 @@ export function Message({ message }) {
           </div>
         )}
         {message.stopped ? <div className="stopped">Generation stopped.</div> : null}
+        {!isUser && message.text && onSaveNote ? (
+          <button type="button" className="text-btn save-note" onClick={() => onSaveNote(message)}>
+            Save as note
+          </button>
+        ) : null}
       </div>
       {isUser ? <Avatar role="user" /> : null}
     </article>

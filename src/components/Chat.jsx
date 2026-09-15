@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChromeLocalProvider, buildPromptInput, categorizeError } from "../ai/chromeLocal.js";
-import { AVAILABILITY } from "../ai/types.js";
+import { buildPromptInput } from "../ai/provider.js";
+import { categorizeError } from "../ai/errors.js";
+import { buildSystemPrompt } from "../ai/systemPrompt.js";
 import {
   MAX_ATTACHMENTS,
   attachmentToMediaParts,
@@ -10,19 +11,38 @@ import {
   revokeAll,
   revokeAttachment,
 } from "../ai/multimodal.js";
+import {
+  createConversation,
+  deriveTitle,
+  getConversation,
+  updateConversation,
+} from "../storage/conversations.js";
+import {
+  listMessages,
+  putMessage,
+  saveUserTurn,
+  toUiMessage,
+  updateMessageContent,
+} from "../storage/messages.js";
+import { createNote } from "../storage/notes.js";
+import { getSetting } from "../storage/settings.js";
+import {
+  createMemory,
+  listMemories,
+  updateMemory,
+} from "../storage/memories.js";
+import { parseMemoryCommand, looksSensitive, inferMemoryCandidate } from "../features/memory/commands.js";
+import { retrieveMemories } from "../features/memory/retrieval.js";
+import { compactMessages, messagesToInitialPrompts } from "../features/chat/context.js";
 import { CompatibilityPanel } from "./CompatibilityPanel.jsx";
 import { Composer } from "./Composer.jsx";
-import { InstallApp } from "./InstallApp.jsx";
 import { Message } from "./Message.jsx";
-import { ModelStatus } from "./ModelStatus.jsx";
 
 const STARTERS = [
-  { label: "Text", text: "Explain recursion like I'm 12." },
+  { label: "Explain", text: "Explain recursion like I'm 12." },
   { label: "Image", text: "What's in this image?", needsImage: true },
-  { label: "Screenshot", text: "Look at this screenshot and explain what is wrong with the UI.", needsImage: true },
-  { label: "Photo", text: "Summarize the important information in this photo.", needsImage: true },
-  { label: "Creative", text: "Turn this idea into a short story." },
-  { label: "Coding", text: "Explain this code and suggest a simpler implementation." },
+  { label: "Write", text: "Turn this idea into a short story." },
+  { label: "Code", text: "Explain this code and suggest a simpler implementation." },
 ];
 
 function hasVisualAttachment(list) {
@@ -35,36 +55,37 @@ function promptNeedsImage(text) {
   );
 }
 
-export function Chat({ theme, onToggleTheme }) {
-  const providerRef = useRef(null);
-  if (!providerRef.current) {
-    providerRef.current = new ChromeLocalProvider();
-  }
-  const provider = providerRef.current;
-
-  const [phase, setPhase] = useState("checking");
-  const [downloadProgress, setDownloadProgress] = useState(null);
-  const [capabilities, setCapabilities] = useState({
-    image: false,
-    audio: false,
-    videoFrames: false,
-  });
+export function Chat({
+  provider,
+  phase,
+  setPhase,
+  capabilities,
+  prepareModel,
+  error,
+  setError,
+  conversationId,
+  onConversationId,
+  onConversationsChanged,
+  generating,
+  setGenerating,
+  setContextUsage,
+}) {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState([]);
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState(null);
   const [fileError, setFileError] = useState(null);
   const [contextNotice, setContextNotice] = useState(false);
-  const [contextUsage, setContextUsage] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [memorySuggestion, setMemorySuggestion] = useState(null);
+  const [rememberEnabled, setRememberEnabled] = useState(true);
   const abortRef = useRef(null);
   const transcriptRef = useRef(null);
   const bottomSentinelRef = useRef(null);
   const stickToBottomRef = useRef(true);
   const autoScrollingRef = useRef(false);
   const dragDepth = useRef(0);
+  const persistTimer = useRef(null);
 
   function isNearBottom(element) {
     return element.scrollHeight - element.scrollTop - element.clientHeight <= 48;
@@ -99,60 +120,35 @@ export function Chat({ theme, onToggleTheme }) {
 
   useEffect(() => {
     provider.onContextOverflow = () => setContextNotice(true);
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const result = await provider.checkAvailability();
-        if (cancelled) return;
-        setCapabilities(result.capabilities);
-
-        if (result.status === AVAILABILITY.UNSUPPORTED) {
-          setPhase("unsupported");
-          return;
-        }
-        if (result.status === AVAILABILITY.UNAVAILABLE) {
-          setPhase("unavailable");
-          return;
-        }
-        if (result.status === AVAILABILITY.AVAILABLE) {
-          try {
-            await provider.initialize();
-            if (cancelled) return;
-            setContextUsage(provider.getContextUsage());
-            setPhase("ready");
-            return;
-          } catch {
-            if (cancelled) return;
-            setPhase("downloadable");
-            return;
-          }
-        }
-        if (result.status === AVAILABILITY.DOWNLOADING) {
-          setPhase("downloading");
-          return;
-        }
-        setPhase("downloadable");
-      } catch {
-        if (!cancelled) {
-          setPhase("unsupported");
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [provider]);
 
   useEffect(() => {
-    const onPageHide = () => {
-      abortRef.current?.abort();
-      provider.destroy();
+    let cancelled = false;
+    (async () => {
+      if (!conversationId) {
+        abortRef.current?.abort();
+        setGenerating(false);
+        setMessages([]);
+        return;
+      }
+      const rows = await listMessages(conversationId);
+      if (cancelled) return;
+      const ui = rows.map(toUiMessage);
+      setMessages(ui);
+      const conversation = await getConversation(conversationId);
+      if (conversation) setRememberEnabled(conversation.rememberEnabled !== false);
+      if (phase === "ready") {
+        try {
+          await recreateSession(ui);
+        } catch {
+          // Keep the existing session if replay fails.
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener("pagehide", onPageHide);
-    return () => window.removeEventListener("pagehide", onPageHide);
-  }, [provider]);
+  }, [conversationId, phase]);
 
   useEffect(() => {
     const root = transcriptRef.current;
@@ -177,25 +173,22 @@ export function Chat({ theme, onToggleTheme }) {
     scrollTranscriptToBottom();
   }, [messages, generating]);
 
-  async function prepareModel() {
-    setError(null);
-    setPhase("downloading");
-    setDownloadProgress(0);
-    try {
-      await provider.initialize({
-        onDownloadProgress: (loaded) => {
-          setDownloadProgress(loaded);
-          setPhase("downloading");
-        },
-      });
-      setContextUsage(provider.getContextUsage());
-      setPhase("ready");
-      setDownloadProgress(null);
-    } catch (caught) {
-      const message = categorizeError(caught) || "Chrome couldn't prepare the local model.";
-      setError(message);
-      setPhase("error");
-    }
+  async function recreateSession(historyMessages) {
+    provider.destroySession();
+    if (phase !== "ready" && phase !== "error") return;
+    const memoryOn = (await getSetting("memoryEnabled", true)) && rememberEnabled;
+    const memories = memoryOn ? await listMemories() : [];
+    const relevant = retrieveMemories(
+      historyMessages.map((item) => item.text).join(" "),
+      memories,
+    );
+    const { promptMessages, summary } = compactMessages(historyMessages);
+    const systemPrompt = buildSystemPrompt({ memories: relevant });
+    await provider.createSession({
+      initialPrompts: messagesToInitialPrompts(systemPrompt, promptMessages, summary),
+    });
+    setContextUsage(provider.getContextUsage());
+    setPhase("ready");
   }
 
   async function addFiles(fileList) {
@@ -247,6 +240,80 @@ export function Chat({ theme, onToggleTheme }) {
     }
   }
 
+  async function ensureConversation(firstText) {
+    if (conversationId) return conversationId;
+    const created = await createConversation({ title: deriveTitle(firstText) });
+    onConversationId(created.id);
+    await onConversationsChanged();
+    return created.id;
+  }
+
+  async function handleMemoryCommand(command, activeId) {
+    if (command.type === "remember") {
+      if (looksSensitive(command.text)) {
+        setError("That looks like a secret. Local AI will not store passwords, tokens, or keys as memory.");
+        return true;
+      }
+      await createMemory({
+        text: command.text,
+        category: "preference",
+        confidence: "high",
+        source: "explicit",
+        sourceConversationId: activeId,
+      });
+      const confirmation = `I'll remember that ${command.text.replace(/^i\s+/i, "you ")}.`;
+      const saved = await putMessage({
+        conversationId: activeId,
+        role: "assistant",
+        content: confirmation,
+      });
+      setMessages((current) => [...current, toUiMessage({ ...saved, attachments: [] })]);
+      return true;
+    }
+    if (command.type === "list") {
+      const memories = await listMemories();
+      const confirmation = memories.length
+        ? `Here's what is saved locally:\n${memories.map((item) => `- ${item.text}`).join("\n")}`
+        : "I don't have any saved memories yet.";
+      const saved = await putMessage({
+        conversationId: activeId,
+        role: "assistant",
+        content: confirmation,
+      });
+      setMessages((current) => [...current, toUiMessage({ ...saved, attachments: [] })]);
+      return true;
+    }
+    if (command.type === "forget") {
+      const memories = await listMemories();
+      const needle = command.text.toLowerCase();
+      const match = memories.find((item) => item.text.toLowerCase().includes(needle));
+      if (match) await updateMemory(match.id, { status: "archived" });
+      const confirmation = match
+        ? `I'll forget that ${match.text}.`
+        : "I couldn't find a saved memory that matches.";
+      const saved = await putMessage({
+        conversationId: activeId,
+        role: "assistant",
+        content: confirmation,
+      });
+      setMessages((current) => [...current, toUiMessage({ ...saved, attachments: [] })]);
+      return true;
+    }
+    if (command.type === "opt_out") {
+      await updateConversation(activeId, { rememberEnabled: false });
+      setRememberEnabled(false);
+      const confirmation = "I won't remember anything from this conversation.";
+      const saved = await putMessage({
+        conversationId: activeId,
+        role: "assistant",
+        content: confirmation,
+      });
+      setMessages((current) => [...current, toUiMessage({ ...saved, attachments: [] })]);
+      return true;
+    }
+    return false;
+  }
+
   async function sendMessage(textOverride) {
     const text = (textOverride ?? draft).trim();
     if ((!text && !attachments.length) || generating || phase !== "ready") return;
@@ -256,61 +323,107 @@ export function Chat({ theme, onToggleTheme }) {
       setFileError("Attach an image first. Nothing was attached, so the model has nothing to look at.");
       return;
     }
-    const media = outgoingAttachments.flatMap(attachmentToMediaParts);
-    const userMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      text,
-      attachments: outgoingAttachments,
-    };
-    const assistantId = crypto.randomUUID();
 
+    const activeId = await ensureConversation(text || outgoingAttachments[0]?.name || "New conversation");
+    const command = parseMemoryCommand(text);
+    if (command && !outgoingAttachments.length) {
+      setDraft("");
+      await saveUserTurn({ conversationId: activeId, text, attachments: [] });
+      setMessages((current) => [
+        ...current,
+        { id: crypto.randomUUID(), role: "user", text, attachments: [] },
+      ]);
+      await handleMemoryCommand(command, activeId);
+      await onConversationsChanged();
+      return;
+    }
+
+    const media = outgoingAttachments.flatMap(attachmentToMediaParts);
     setDraft("");
     setAttachments([]);
     setError(null);
     setContextNotice(false);
     stickToBottomRef.current = true;
-    setMessages((current) => [
-      ...current,
-      userMessage,
-      { id: assistantId, role: "assistant", text: "", attachments: [], stopped: false },
-    ]);
+
+    const userMessage = await saveUserTurn({
+      conversationId: activeId,
+      text,
+      attachments: outgoingAttachments,
+    });
+    const assistant = await putMessage({
+      conversationId: activeId,
+      role: "assistant",
+      content: "",
+    });
+    const assistantUi = toUiMessage({ ...assistant, attachments: [] });
+
+    setMessages((current) => [...current, toUiMessage(userMessage), assistantUi]);
     setGenerating(true);
+
+    if ((await getSetting("memoryEnabled", true)) && rememberEnabled) {
+      const inferred = inferMemoryCandidate(text);
+      if (inferred) setMemorySuggestion(inferred);
+    }
 
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
-      const input = buildPromptInput(text, media);
-      await provider.stream(
+      if (!provider.session) {
+        await recreateSession([...messages, toUiMessage(userMessage)]);
+      }
+      const memories = rememberEnabled && (await getSetting("memoryEnabled", true))
+        ? retrieveMemories(text, await listMemories())
+        : [];
+      const memoryPrefix = memories.length
+        ? `${buildSystemPrompt({ memories }).split("Guidelines:")[0]}\n`
+        : "";
+      const input = buildPromptInput(memoryPrefix ? `${text}` : text, media);
+      await provider.streamText(
         input,
         (nextText) => {
           setMessages((current) =>
             current.map((message) =>
-              message.id === assistantId ? { ...message, text: nextText } : message,
+              message.id === assistant.id ? { ...message, text: nextText } : message,
             ),
           );
+          clearTimeout(persistTimer.current);
+          persistTimer.current = setTimeout(() => {
+            updateMessageContent(assistant.id, nextText);
+          }, 250);
         },
         controller.signal,
       );
+      const latest = await new Promise((resolve) => {
+        setMessages((current) => {
+          const found = current.find((item) => item.id === assistant.id);
+          resolve(found?.text || "");
+          return current;
+        });
+      });
+      await updateMessageContent(assistant.id, latest);
+      if (userMessage.content || text) {
+        await updateConversation(activeId, { title: deriveTitle(text) });
+      }
       setContextUsage(provider.getContextUsage());
+      await onConversationsChanged();
     } catch (caught) {
       const message = categorizeError(caught);
       if (message) {
         setError(message);
         setMessages((current) =>
           current.map((item) =>
-            item.id === assistantId && !item.text
-              ? { ...item, text: message }
-              : item,
+            item.id === assistant.id && !item.text ? { ...item, text: message } : item,
           ),
         );
+        await updateMessageContent(assistant.id, message);
       } else {
         setMessages((current) =>
           current.map((item) =>
-            item.id === assistantId ? { ...item, stopped: true } : item,
+            item.id === assistant.id ? { ...item, stopped: true } : item,
           ),
         );
+        await updateMessageContent(assistant.id, "", { stopped: true });
       }
     } finally {
       setGenerating(false);
@@ -322,31 +435,13 @@ export function Chat({ theme, onToggleTheme }) {
     abortRef.current?.abort();
   }
 
-  async function newChat() {
-    abortRef.current?.abort();
-    setGenerating(false);
-    setMessages((current) => {
-      for (const message of current) {
-        revokeAll(message.attachments || []);
-      }
-      return [];
+  async function saveNoteFromMessage(message) {
+    await createNote({
+      title: deriveTitle(message.text),
+      content: message.text,
+      sourceType: "chat",
+      sourceReference: conversationId,
     });
-    setError(null);
-    setContextNotice(false);
-    revokeAll(attachments);
-    setAttachments([]);
-    stickToBottomRef.current = true;
-    provider.destroy();
-    if (phase === "ready" || phase === "error") {
-      try {
-        await provider.initialize();
-        setContextUsage(provider.getContextUsage());
-        setPhase("ready");
-      } catch (caught) {
-        setError(categorizeError(caught) || "Couldn't start a new chat.");
-        setPhase("error");
-      }
-    }
   }
 
   function onDragEnter(event) {
@@ -379,34 +474,6 @@ export function Chat({ theme, onToggleTheme }) {
 
   return (
     <>
-      <header className="topbar">
-        <div className="brand">
-          <h1>Built-in Chat</h1>
-          <span>On-device in Chrome</span>
-        </div>
-        <div className="topbar-actions">
-          <ModelStatus
-            phase={generating ? "ready" : phase}
-            downloadProgress={downloadProgress}
-            generating={generating}
-            contextUsage={contextUsage}
-          />
-          <button type="button" className="text-btn" onClick={newChat} disabled={phase === "checking"}>
-            New chat
-          </button>
-          <InstallApp />
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={onToggleTheme}
-            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            title="Toggle theme"
-          >
-            {theme === "dark" ? "☀" : "☾"}
-          </button>
-        </div>
-      </header>
-
       <main
         className="chat-layout"
         onDragEnter={onDragEnter}
@@ -448,7 +515,7 @@ export function Chat({ theme, onToggleTheme }) {
                 </p>
                 <p>
                   Chrome is downloading the model needed for this chatbot. This only needs to happen when
-                  the model isn't already available.
+                  the model isn&apos;t already available.
                 </p>
                 <button type="button" className="prepare-btn" onClick={prepareModel}>
                   Continue
@@ -458,10 +525,9 @@ export function Chat({ theme, onToggleTheme }) {
 
             {phase === "ready" && messages.length === 0 ? (
               <section className="empty-state">
-                <h2>A local model, in the browser.</h2>
+                <h2>Ask anything locally.</h2>
                 <p>
-                  Prompts are processed by Chrome's built-in AI on this device. This app doesn't send your
-                  prompts to our AI server.
+                  Chrome runs the model on this device. This app doesn&apos;t send your prompts to our AI server.
                 </p>
                 <div className="starters">
                   {STARTERS.map((starter) => (
@@ -497,7 +563,7 @@ export function Chat({ theme, onToggleTheme }) {
 
             {contextNotice ? (
               <section className="banner">
-                <p>The conversation reached the model's context window. Older turns may be dropped.</p>
+                <p>The conversation reached the model&apos;s context window. Older turns may be dropped.</p>
               </section>
             ) : null}
 
@@ -507,8 +573,38 @@ export function Chat({ theme, onToggleTheme }) {
               </section>
             ) : null}
 
+            {memorySuggestion ? (
+              <section className="banner">
+                <p>Save this as a preference? “{memorySuggestion.text}”</p>
+                <button
+                  type="button"
+                  className="prepare-btn"
+                  onClick={async () => {
+                    await createMemory({
+                      ...memorySuggestion,
+                      source: "inferred",
+                      sourceConversationId: conversationId,
+                    });
+                    setMemorySuggestion(null);
+                  }}
+                >
+                  Save
+                </button>
+                <button type="button" className="text-btn" onClick={() => setMemorySuggestion(null)}>
+                  Not now
+                </button>
+                <button
+                  type="button"
+                  className="text-btn"
+                  onClick={() => setMemorySuggestion(null)}
+                >
+                  Never suggest this
+                </button>
+              </section>
+            ) : null}
+
             {messages.map((message) => (
-              <Message key={message.id} message={message} />
+              <Message key={message.id} message={message} onSaveNote={saveNoteFromMessage} />
             ))}
             <div className="transcript-end" ref={bottomSentinelRef} aria-hidden="true" />
           </div>

@@ -1,4 +1,4 @@
-export function ModelStatus({ phase, downloadProgress, generating, contextUsage }) {
+export function ModelStatus({ phase, downloadProgress, generating, contextUsage, offline }) {
   const percent =
     downloadProgress == null ? null : Math.min(100, Math.max(0, Math.round(downloadProgress * 100)));
 
@@ -6,22 +6,25 @@ export function ModelStatus({ phase, downloadProgress, generating, contextUsage 
   let tone = "busy";
 
   if (phase === "unsupported" || phase === "unavailable") {
-    label = "Built-in AI unavailable";
+    label = "Local AI not available on this device";
     tone = "bad";
   } else if (phase === "downloadable") {
-    label = "Prepare local AI";
+    label = "Local AI not prepared";
     tone = "busy";
   } else if (phase === "downloading") {
-    label = percent == null ? "Preparing local AI…" : `Preparing local AI… ${percent}%`;
+    label = percent == null ? "Preparing Local AI…" : `Preparing Local AI… ${percent}%`;
     tone = "busy";
   } else if (phase === "ready" && generating) {
     label = "Thinking…";
     tone = "busy";
+  } else if (phase === "ready" && offline) {
+    label = "Local AI offline";
+    tone = "ready";
   } else if (phase === "ready") {
     label = "Local AI ready";
     tone = "ready";
   } else if (phase === "error") {
-    label = "Something went wrong";
+    label = "Local AI needs attention";
     tone = "bad";
   }
 
