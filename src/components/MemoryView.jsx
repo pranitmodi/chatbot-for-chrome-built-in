@@ -10,6 +10,7 @@ import {
 import { getSetting, setSetting } from "../storage/settings.js";
 import { downloadJson, exportAll, importAll, validateExportPayload } from "../storage/exportImport.js";
 import { EXPORT_MEMORY_TITLE, IMPORT_MEMORY_TITLE } from "../features/exportHints.js";
+import { openDraft } from "../features/drafts.js";
 import { SearchIcon } from "./Icons.jsx";
 
 const FILTERS = [
@@ -24,6 +25,8 @@ export function MemoryView() {
   const [draft, setDraft] = useState("");
   const [filter, setFilter] = useState("active");
   const [query, setQuery] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editText, setEditText] = useState("");
 
   async function refresh() {
     setMemories(await listMemories({ includeArchived: true }));
@@ -215,9 +218,19 @@ export function MemoryView() {
         <ul className="memory-list">
           {visible.map((memory) => (
             <li key={memory.id} className={memory.status !== MEMORY_STATUS.ACTIVE ? "is-archived" : ""}>
-              <p className="memory-text">
-                {memory.text} {memory.imported ? <small className="memory-tag">imported</small> : null}
-              </p>
+              {editingId === memory.id ? (
+                <input
+                  className="memory-inline-edit"
+                  value={editText}
+                  onChange={(event) => setEditText(event.target.value)}
+                  aria-label="Edit memory"
+                  autoFocus
+                />
+              ) : (
+                <p className="memory-text">
+                  {memory.text} {memory.imported ? <small className="memory-tag">imported</small> : null}
+                </p>
+              )}
               <div className="memory-meta">
                 <span className="memory-tag">{memory.category || "general"}</span>
                 <span className="memory-tag">{memory.source}</span>
@@ -225,19 +238,45 @@ export function MemoryView() {
                 <span className="memory-tag">{memory.status}</span>
               </div>
               <div className="panel-actions memory-item-actions">
-                <button
-                  type="button"
-                  className="text-btn"
-                  onClick={async () => {
-                    const text = window.prompt("Edit memory", memory.text);
-                    if (text) {
-                      await updateMemory(memory.id, { text });
-                      refresh();
-                    }
-                  }}
-                >
-                  Edit
-                </button>
+                {editingId === memory.id ? (
+                  <>
+                    <button
+                      type="button"
+                      className="prepare-btn"
+                      disabled={!editText.trim()}
+                      onClick={async () => {
+                        await updateMemory(memory.id, { text: editText.trim() });
+                        setEditingId(null);
+                        refresh();
+                      }}
+                    >
+                      Save
+                    </button>
+                    <button type="button" className="text-btn" onClick={() => setEditingId(null)}>
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="text-btn"
+                      onClick={() => {
+                        setEditingId(memory.id);
+                        setEditText(memory.text);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-btn"
+                      onClick={() => openDraft("chat", `Use this saved preference: ${memory.text}`, "Memory")}
+                    >
+                      Use in Chat
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   className="text-btn"

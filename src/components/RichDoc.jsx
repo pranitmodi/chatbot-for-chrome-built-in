@@ -72,6 +72,7 @@ export function RichInput({
   placeholder,
   label = "Input",
   disabled = false,
+  onClear,
   "aria-label": ariaLabel,
 }) {
   const id = useId();
@@ -79,6 +80,11 @@ export function RichInput({
     <div className="rich-input">
       <div className="rich-toolbar">
         <label htmlFor={id}>{label}</label>
+        {value && onClear ? (
+          <button type="button" className="text-btn" onClick={onClear} disabled={disabled}>
+            Clear
+          </button>
+        ) : null}
       </div>
       <textarea
         id={id}
@@ -99,6 +105,7 @@ export function RichResult({
   onChange,
   busy = false,
   emptyHint = "Run locally to see a result here.",
+  actions,
 }) {
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -148,6 +155,7 @@ export function RichResult({
       <div className="rich-toolbar">
         <span className="rich-toolbar-label">{busy ? "Writing…" : "Result"}</span>
         <div className="rich-toolbar-actions">
+          {actions}
           {value ? (
             <>
               <button

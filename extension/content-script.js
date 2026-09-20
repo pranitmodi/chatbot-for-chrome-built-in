@@ -46,3 +46,41 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   return undefined;
 });
+
+async function isConfiguredAppOrigin() {
+  const { appUrl = "https://builtinchrome.project93.in/" } =
+    await chrome.storage.local.get("appUrl");
+  try {
+    return location.origin === new URL(appUrl).origin;
+  } catch {
+    return location.origin === "https://builtinchrome.project93.in";
+  }
+}
+
+async function reportAppStatus({ allowUnconfirmed = false } = {}) {
+  if (!(await isConfiguredAppOrigin())) return;
+  const phase = document.documentElement.dataset.localAiPhase;
+  if (!phase && !allowUnconfirmed) return;
+  chrome.runtime.sendMessage({
+    type: "local-ai:app-status",
+    phase: phase || "unconfirmed",
+    origin: location.origin,
+    updatedAt: Date.now(),
+  }).catch(() => {});
+}
+
+if (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+  reportAppStatus();
+  const statusObserver = new MutationObserver(() => reportAppStatus());
+  statusObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-local-ai-phase"],
+  });
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || event.origin !== location.origin) return;
+    if (event.data?.type === "local-ai:status") reportAppStatus();
+  });
+  // A deployment without the readiness bridge never sets the attribute. Say so explicitly
+  // instead of leaving the popup waiting for a confirmation that will never arrive.
+  setTimeout(() => reportAppStatus({ allowUnconfirmed: true }), 3000);
+}

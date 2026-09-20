@@ -20,6 +20,20 @@
         --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
       }
 
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+          --bg: #141210;
+          --elevated: #24201c;
+          --ink: #f3ece1;
+          --soft: #b7aea1;
+          --line: rgba(243, 236, 225, 0.12);
+          --accent: #e8b86d;
+          --accent-soft: rgba(232, 184, 109, 0.14);
+          --ok: #8fce9a;
+        }
+      }
+
       * {
         box-sizing: border-box;
       }
@@ -123,14 +137,29 @@
         background: color-mix(in srgb, var(--accent-soft) 55%, var(--elevated));
       }
 
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+      }
+
+      button[hidden] {
+        display: none;
+      }
+
       button.primary {
         background: var(--ink);
-        color: #f7f1e6;
+        color: var(--bg);
         border-color: transparent;
       }
 
       button.primary:hover {
-        background: #2a251f;
+        background: color-mix(in srgb, var(--ink) 86%, var(--bg));
       }
 
       button strong {
@@ -221,6 +250,17 @@
         font-size: 0.7rem;
         line-height: 1.4;
       }
+
+      .settings-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .settings-actions button {
+        flex: 1;
+        padding: 8px 10px;
+      }
     </style>
   </head>
   <body>
@@ -238,22 +278,27 @@
     </p>
 
     <div class="page-meta" id="pageMeta" hidden></div>
+    <p class="status" id="modelStatus">Checking Local AI…</p>
     <p class="status" id="status" hidden></p>
 
     <div class="actions">
+      <button type="button" class="primary" data-action="setup" id="setupAction" hidden>
+        <strong>Open Local AI setup</strong>
+        <small>Prepare Chrome’s on-device model</small>
+      </button>
       <button type="button" class="primary" data-action="ask">
         <strong>Ask anything…</strong>
         <small>Open chat in Local AI</small>
       </button>
-      <button type="button" data-action="summarize">
+      <button type="button" data-action="summarize" data-requires-ready>
         <strong>Summarize page</strong>
         <small>Title, headings &amp; main text → app</small>
       </button>
-      <button type="button" data-action="explain">
+      <button type="button" data-action="explain" data-requires-ready data-requires-selection="1">
         <strong>Explain selection</strong>
         <small>Needs highlighted text on this tab</small>
       </button>
-      <button type="button" data-action="rewrite">
+      <button type="button" data-action="rewrite" data-requires-ready data-requires-selection="1">
         <strong>Rewrite selection</strong>
         <small>Make the selection clearer</small>
       </button>
@@ -264,11 +309,15 @@
     </div>
 
     <details class="settings">
-      <summary>App URL</summary>
+      <summary>Change app location</summary>
       <label>
         Where Local AI is running
         <input id="appUrl" placeholder="http://127.0.0.1:5173/" spellcheck="false" />
       </label>
+      <div class="settings-actions">
+        <button type="button" id="saveAppUrl"><strong>Save</strong></button>
+        <button type="button" id="restoreAppUrl"><strong>Use hosted app</strong></button>
+      </div>
       <p class="footnote">
         Summaries run in the app, not this tiny popup — so the full toolbox and model session stay in one place.
       </p>

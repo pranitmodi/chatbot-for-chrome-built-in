@@ -34,13 +34,14 @@ import {
 import { parseMemoryCommand, looksSensitive, inferMemoryCandidate } from "../features/memory/commands.js";
 import { retrieveMemories } from "../features/memory/retrieval.js";
 import { compactMessages, messagesToInitialPrompts } from "../features/chat/context.js";
+import { draftFromCurrentRoute } from "../features/drafts.js";
+import { setHash } from "../features/navigation.js";
 import { CompatibilityPanel } from "./CompatibilityPanel.jsx";
 import { Composer } from "./Composer.jsx";
 import { Message } from "./Message.jsx";
 
 const STARTERS = [
   { label: "Explain", text: "Explain recursion like I'm 12." },
-  { label: "Image", text: "What's in this image?", needsImage: true },
   { label: "Write", text: "Turn this idea into a short story." },
   { label: "Code", text: "Explain this code and suggest a simpler implementation." },
 ];
@@ -64,6 +65,7 @@ export function Chat({
   error,
   setError,
   conversationId,
+  downloadProgress = null,
   onConversationId,
   onConversationsChanged,
   generating,
@@ -71,7 +73,7 @@ export function Chat({
   setContextUsage,
 }) {
   const [messages, setMessages] = useState([]);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(() => draftFromCurrentRoute("chat")?.content || "");
   const [attachments, setAttachments] = useState([]);
   const [fileError, setFileError] = useState(null);
   const [contextNotice, setContextNotice] = useState(false);
@@ -444,6 +446,18 @@ export function Chat({
     });
   }
 
+  function continueFromMessage(message) {
+    setDraft(`Continue from this response:\n\n${message.text}\n\n`);
+  }
+
+  function regenerateMessage(message) {
+    const index = messages.findIndex((item) => item.id === message.id);
+    const previous = index > 0 ? messages[index - 1] : null;
+    if (previous?.role === "user" && !generating) {
+      sendMessage(previous.text);
+    }
+  }
+
   function onDragEnter(event) {
     event.preventDefault();
     dragDepth.current += 1;
@@ -496,6 +510,18 @@ export function Chat({
           <div className="transcript-inner">
             {blocked ? <CompatibilityPanel phase={phase} /> : null}
 
+            {phase === "checking" ? (
+              <section className="banner">
+                <p>
+                  <strong>Checking Chrome’s built-in AI.</strong> Looking for the on-device model.
+                  Chat opens by itself as soon as this finishes.
+                </p>
+                <button type="button" className="text-btn" onClick={() => setHash("status")}>
+                  Open status
+                </button>
+              </section>
+            ) : null}
+
             {phase === "downloadable" ? (
               <section className="banner">
                 <p>
@@ -512,23 +538,18 @@ export function Chat({
               <section className="banner">
                 <p>
                   <strong>Preparing local AI</strong>
+                  {downloadProgress == null
+                    ? " Chrome is downloading the on-device model."
+                    : ` ${Math.min(100, Math.max(0, Math.round(downloadProgress * 100)))}%`}
                 </p>
-                <p>
-                  Chrome is downloading the model needed for this chatbot. This only needs to happen when
-                  the model isn&apos;t already available.
-                </p>
-                <button type="button" className="prepare-btn" onClick={prepareModel}>
-                  Continue
-                </button>
+                <p>This only needs to happen when the model isn&apos;t already available. Keep this tab open.</p>
               </section>
             ) : null}
 
             {phase === "ready" && messages.length === 0 ? (
               <section className="empty-state">
                 <h2>Ask anything locally.</h2>
-                <p>
-                  Chrome runs the model on this device. This app doesn&apos;t send your prompts to our AI server.
-                </p>
+                <p>On this device. Ask something, or pick a starter.</p>
                 <div className="starters">
                   {STARTERS.map((starter) => (
                     <button
@@ -537,11 +558,7 @@ export function Chat({
                       key={starter.label}
                       onClick={() => {
                         setDraft(starter.text);
-                        if (starter.needsImage && !hasVisualAttachment(attachments)) {
-                          setFileError("Attach an image, then send.");
-                        } else {
-                          setFileError(null);
-                        }
+                        setFileError(null);
                       }}
                     >
                       <small>{starter.label}</small>
@@ -604,7 +621,13 @@ export function Chat({
             ) : null}
 
             {messages.map((message) => (
-              <Message key={message.id} message={message} onSaveNote={saveNoteFromMessage} />
+              <Message
+                key={message.id}
+                message={message}
+                onSaveNote={saveNoteFromMessage}
+                onContinue={message.role === "assistant" ? continueFromMessage : undefined}
+                onRegenerate={message.role === "assistant" ? regenerateMessage : undefined}
+              />
             ))}
             <div className="transcript-end" ref={bottomSentinelRef} aria-hidden="true" />
           </div>

@@ -7,7 +7,7 @@ function isStandalone() {
   );
 }
 
-export function InstallApp() {
+export function useInstallPrompt() {
   const [installEvent, setInstallEvent] = useState(null);
   const [installed, setInstalled] = useState(isStandalone);
 
@@ -30,17 +30,24 @@ export function InstallApp() {
     };
   }, []);
 
-  if (installed || !installEvent) {
-    return null;
-  }
-
   async function install() {
+    if (!installEvent) return;
     installEvent.prompt();
     const choice = await installEvent.userChoice;
     if (choice.outcome === "accepted") {
       setInstalled(true);
     }
     setInstallEvent(null);
+  }
+
+  return { installed, installEvent, install };
+}
+
+export function InstallApp() {
+  const { installed, installEvent, install } = useInstallPrompt();
+
+  if (installed || !installEvent) {
+    return null;
   }
 
   return (

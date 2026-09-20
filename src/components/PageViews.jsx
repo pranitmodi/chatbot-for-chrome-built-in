@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { ToolWorkspace } from "./ToolWorkspace.jsx";
 import { buildPagePrompt, buildSelectionPrompt } from "../ai/prompts.js";
-import { parseHash } from "../features/navigation.js";
+import { consumeHandoff } from "../features/navigation.js";
 
 function PageSourceHint({ fromExtension }) {
   if (fromExtension) {
@@ -36,9 +36,9 @@ function PageSourceHint({ fromExtension }) {
 }
 
 export function PageAiView({ provider, phase, prepareModel }) {
-  const hash = parseHash();
-  const initial = hash.params.get("payload") || "";
-  const action = hash.params.get("action") || "summarize";
+  const handoff = useMemo(() => consumeHandoff("page"), []);
+  const initial = handoff?.payload || "";
+  const action = handoff?.action || "summarize";
   const fromExtension = Boolean(initial.trim());
 
   const meta = useMemo(() => {
@@ -89,6 +89,9 @@ export function PageAiView({ provider, phase, prepareModel }) {
         defaultMode={action}
         placeholder="Paste page text here, or use the Chrome extension on another tab…"
         initialInput={initial}
+        autoRun={handoff?.autoRun}
+        handoffId={handoff?.id}
+        sourceLabel={meta.title}
         provider={provider}
         phase={phase}
         prepareModel={prepareModel}
@@ -106,8 +109,8 @@ export function PageAiView({ provider, phase, prepareModel }) {
 }
 
 export function ExplainView({ provider, phase, prepareModel }) {
-  const hash = parseHash();
-  const initial = hash.params.get("payload") || "";
+  const handoff = useMemo(() => consumeHandoff("explain"), []);
+  const initial = handoff?.payload || "";
   const fromExtension = Boolean(initial.trim());
 
   return (
@@ -140,6 +143,9 @@ export function ExplainView({ provider, phase, prepareModel }) {
         defaultMode="explain"
         placeholder="Paste the selected text…"
         initialInput={initial}
+        autoRun={handoff?.autoRun}
+        handoffId={handoff?.id}
+        sourceLabel="Selected text"
         provider={provider}
         phase={phase}
         prepareModel={prepareModel}

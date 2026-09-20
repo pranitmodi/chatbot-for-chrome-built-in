@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { renderMarkdown } from "../ai/markdown.js";
 import { formatBytes } from "../ai/multimodal.js";
 import { AttachmentThumb } from "./AttachmentThumb.jsx";
@@ -61,9 +62,16 @@ function Avatar({ role }) {
   );
 }
 
-export function Message({ message, onSaveNote }) {
+export function Message({ message, onSaveNote, onRegenerate, onContinue }) {
   const isUser = message.role === "user";
   const html = !isUser && message.text ? renderMarkdown(message.text) : "";
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    await navigator.clipboard.writeText(message.text);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  }
 
   return (
     <article className={`message ${message.role}`} aria-label={isUser ? "You" : "Assistant"}>
@@ -82,10 +90,27 @@ export function Message({ message, onSaveNote }) {
           </div>
         )}
         {message.stopped ? <div className="stopped">Generation stopped.</div> : null}
-        {!isUser && message.text && onSaveNote ? (
-          <button type="button" className="text-btn save-note" onClick={() => onSaveNote(message)}>
-            Save as note
-          </button>
+        {!isUser && message.text ? (
+          <div className="message-actions">
+            <button type="button" className="text-btn" onClick={copy}>
+              {copied ? "Copied" : "Copy"}
+            </button>
+            {onSaveNote ? (
+              <button type="button" className="text-btn" onClick={() => onSaveNote(message)}>
+                Save note
+              </button>
+            ) : null}
+            {onContinue ? (
+              <button type="button" className="text-btn" onClick={() => onContinue(message)}>
+                Continue
+              </button>
+            ) : null}
+            {onRegenerate ? (
+              <button type="button" className="text-btn" onClick={() => onRegenerate(message)}>
+                Regenerate
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </div>
       {isUser ? <Avatar role="user" /> : null}

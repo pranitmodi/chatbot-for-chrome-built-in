@@ -44,7 +44,7 @@ export function categorizeError(error) {
     return "The on-device model is still downloading. Wait until Local AI is ready, then retry.";
   }
   if (error.code === ERROR_CODE.UNAVAILABLE) {
-    return "Built-in AI is not available on this device. Open Local AI Status for setup steps.";
+    return "Built-in AI is not available. Open Local AI Status for setup steps.";
   }
   return "The local model couldn't complete that request. Try again, or start a new chat if the session was interrupted.";
 }

@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { createNote, deleteNote, listNotes, updateNote } from "../storage/notes.js";
+import { openDraft } from "../features/drafts.js";
 
 export function NotesView() {
   const [notes, setNotes] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [draft, setDraft] = useState("");
   const [title, setTitle] = useState("");
+  const [query, setQuery] = useState("");
+  const [saveState, setSaveState] = useState("");
 
   async function refresh() {
     const rows = await listNotes();
@@ -22,6 +25,19 @@ export function NotesView() {
   }, []);
 
   const active = notes.find((note) => note.id === activeId);
+  const visible = notes.filter((note) =>
+    `${note.title} ${note.content}`.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+
+  useEffect(() => {
+    if (!activeId || !active) return undefined;
+    setSaveState("Saving…");
+    const timer = window.setTimeout(async () => {
+      await updateNote(activeId, { title, content: draft });
+      setSaveState("Saved locally");
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [activeId, title, draft]);
 
   return (
     <div className="split-page">
@@ -42,7 +58,15 @@ export function NotesView() {
             New
           </button>
         </div>
-        {notes.map((note) => (
+        <input
+          className="note-search"
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search notes"
+          aria-label="Search notes"
+        />
+        {visible.map((note) => (
           <button
             key={note.id}
             type="button"
@@ -65,7 +89,6 @@ export function NotesView() {
               className="title-input"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              onBlur={() => updateNote(active.id, { title, content: draft })}
               aria-label="Note title"
             />
             <textarea
@@ -73,10 +96,23 @@ export function NotesView() {
               rows={16}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              onBlur={() => updateNote(active.id, { title, content: draft })}
               aria-label="Note content"
             />
+            <p className="autosave-state" role="status">{saveState}</p>
             <div className="panel-actions">
+              <button
+                type="button"
+                className="prepare-btn"
+                onClick={() => openDraft("chat", draft, title)}
+              >
+                Continue in Chat
+              </button>
+              <button type="button" className="text-btn" onClick={() => openDraft("summarize", draft, title)}>
+                Summarize
+              </button>
+              <button type="button" className="text-btn" onClick={() => openDraft("rewrite", draft, title)}>
+                Rewrite
+              </button>
               <button
                 type="button"
                 className="text-btn"
@@ -93,6 +129,8 @@ export function NotesView() {
                 onClick={async () => {
                   await deleteNote(active.id);
                   setActiveId(null);
+                  setTitle("");
+                  setDraft("");
                   refresh();
                 }}
               >
@@ -101,7 +139,14 @@ export function NotesView() {
             </div>
           </>
         ) : (
-          <p className="lede">No note selected.</p>
+          <div className="empty-card">
+            <h2>{notes.length ? "No matching note" : "Keep useful local results"}</h2>
+            <p className="lede">
+              {notes.length
+                ? "Try another search or choose a note."
+                : "Create a note here, or save any response from Chat and tools."}
+            </p>
+          </div>
         )}
       </div>
     </div>

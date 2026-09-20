@@ -12,7 +12,21 @@ import { InstallApp } from "./InstallApp.jsx";
 import { ModelStatus } from "./ModelStatus.jsx";
 import { MoonIcon, SunIcon } from "./Icons.jsx";
 import { useLocalAi } from "../hooks/useLocalAi.js";
-import { parseHash, setHash, VIEW_TITLES } from "../features/navigation.js";
+import {
+  consumeHandoff,
+  isKnownView,
+  parseHash,
+  setHash,
+  VIEW_TITLES,
+} from "../features/navigation.js";
+import {
+  defaultLandingView,
+  isOnboarded,
+  markOnboarded,
+  resumeAfterSetup,
+} from "../features/onboarding.js";
+import { draftFromCurrentRoute } from "../features/drafts.js";
+import { OnboardingWizard } from "./OnboardingWizard.jsx";
 import {
   deleteConversation,
   duplicateConversation,
@@ -41,13 +55,19 @@ function getInitialTheme() {
 
 export function App() {
   const [theme, setTheme] = useState(getInitialTheme);
-  const [view, setView] = useState(() => parseHash().view || "chat");
+  const [onboarded, setOnboarded] = useState(isOnboarded);
+  const [view, setView] = useState(() => {
+    const fallback = defaultLandingView(isOnboarded());
+    return parseHash(fallback).view || fallback;
+  });
   const [conversationId, setConversationId] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [notes, setNotes] = useState([]);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    () => window.matchMedia("(max-width: 720px)").matches,
+  );
   const [generating, setGenerating] = useState(false);
   const localAi = useLocalAi();
 
@@ -57,9 +77,36 @@ export function App() {
   }, [theme]);
 
   useEffect(() => {
+    const media = window.matchMedia("(max-width: 720px)");
+    const onChange = (event) => {
+      if (event.matches) setCollapsed(true);
+    };
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.localAiPhase = localAi.phase;
+    window.postMessage(
+      { type: "local-ai:status", phase: localAi.phase, updatedAt: Date.now() },
+      window.location.origin,
+    );
+  }, [localAi.phase]);
+
+  useEffect(() => {
+    const fallback = defaultLandingView(isOnboarded());
+    if (!window.location.hash.replace(/^#\/?/, "")) {
+      setHash(fallback);
+    }
     const onHash = () => {
-      const parsed = parseHash();
-      setView(parsed.view || "chat");
+      const nextFallback = defaultLandingView(isOnboarded());
+      const next = parseHash(nextFallback).view || nextFallback;
+      // An unrecognized route would otherwise render an empty page.
+      if (!isKnownView(next)) {
+        setHash(nextFallback);
+        return;
+      }
+      setView(next);
     };
     window.addEventListener("hashchange", onHash);
     onHash();
@@ -115,18 +162,66 @@ export function App() {
     }),
     [localAi.provider, localAi.phase, localAi.prepareModel],
   );
+  const genericHandoff = useMemo(
+    () => (["rewrite", "summarize", "proofread", "extract", "study"].includes(view)
+      ? consumeHandoff(view)
+      : null),
+    [view],
+  );
+  const genericDraft = useMemo(
+    () => (["rewrite", "summarize", "proofread", "extract", "study"].includes(view)
+      ? draftFromCurrentRoute(view)
+      : null),
+    [view],
+  );
 
-  let main = null;
-  if (view === "home") {
-    main = (
+  const routeParams = parseHash().params;
+  const setupRequested = routeParams.get("setup") === "1";
+  const showOnboarding =
+    (!onboarded || setupRequested) && view !== "status" && localAi.phase !== "ready";
+  const toolsReady = localAi.phase === "ready";
+
+  function renderWizard() {
+    return (
+      <OnboardingWizard
+        phase={localAi.phase}
+        downloadProgress={localAi.downloadProgress}
+        error={localAi.error}
+        prepareModel={localAi.prepareModel}
+        onOpenStatus={() => go("status")}
+        onComplete={() => {
+          markOnboarded();
+          setOnboarded(true);
+          const resume = resumeAfterSetup(view, parseHash().params);
+          setView(resume.target);
+          setHash(resume.target, resume.params);
+        }}
+      />
+    );
+  }
+
+  function renderHome() {
+    return (
       <Home
         onView={(id, id2) => go(id, id2)}
+        onStartChat={() => {
+          if (localAi.phase === "ready") go("chat");
+          else go("setup");
+        }}
+        phase={localAi.phase}
         recent={conversations}
         notes={notes}
         capabilities={localAi.capabilities}
         offline={localAi.offline}
       />
     );
+  }
+
+  let main = null;
+  if (showOnboarding || view === "setup") {
+    main = renderWizard();
+  } else if (view === "home") {
+    main = renderHome();
   } else if (view === "chat") {
     main = (
       <Chat
@@ -138,6 +233,7 @@ export function App() {
         error={localAi.error}
         setError={localAi.setError}
         conversationId={conversationId}
+        downloadProgress={localAi.downloadProgress}
         onConversationId={setConversationId}
         onConversationsChanged={refreshLists}
         generating={generating}
@@ -165,6 +261,10 @@ export function App() {
         ]}
         defaultMode="paragraph"
         placeholder="Paste text, a note, or a page extract"
+        initialInput={genericHandoff?.payload || genericDraft?.content || ""}
+        sourceLabel={genericHandoff ? "Extension" : genericDraft?.source}
+        autoRun={genericHandoff?.autoRun}
+        handoffId={genericHandoff?.id}
         buildPrompt={buildSummaryPrompt}
       />
     );
@@ -185,6 +285,10 @@ export function App() {
         ]}
         defaultMode="clearer"
         placeholder="Paste text to rewrite"
+        initialInput={genericHandoff?.payload || genericDraft?.content || ""}
+        sourceLabel={genericHandoff ? "Extension" : genericDraft?.source}
+        autoRun={genericHandoff?.autoRun}
+        handoffId={genericHandoff?.id}
         buildPrompt={buildRewritePrompt}
       />
     );
@@ -199,6 +303,8 @@ export function App() {
             : "Uses the on-device Prompt API. Original, suggested version, and explanation are requested."
         }
         placeholder="Paste text to proofread"
+        initialInput={genericDraft?.content || ""}
+        sourceLabel={genericDraft?.source}
         buildPrompt={(text) => buildProofreadPrompt(text)}
       />
     );
@@ -209,6 +315,8 @@ export function App() {
         title="Extract"
         description="Returns JSON. Nothing extracted here is executed as an action."
         placeholder="Paste unstructured text"
+        initialInput={genericDraft?.content || ""}
+        sourceLabel={genericDraft?.source}
         buildPrompt={(text) => buildExtractionPrompt(text)}
       />
     );
@@ -236,6 +344,8 @@ export function App() {
         ]}
         defaultMode="summary"
         placeholder="Paste notes, an article extract, or study material"
+        initialInput={genericDraft?.content || ""}
+        sourceLabel={genericDraft?.source}
         buildPrompt={buildStudyPrompt}
       />
     );
@@ -256,12 +366,18 @@ export function App() {
     );
   }
 
+  // A route we do not recognize must still land somewhere usable.
+  if (!main) {
+    main = onboarded ? renderHome() : renderWizard();
+  }
+
   return (
-    <div className={`app-shell app-shell-nav ${view === "chat" ? "is-chat" : ""} ${collapsed ? "collapsed-nav" : ""}`}>
+    <div className={`app-shell app-shell-nav ${view === "chat" && !showOnboarding && view !== "setup" ? "is-chat" : ""} ${collapsed ? "collapsed-nav" : ""}`}>
       <a className="skip-link" href="#main">Skip to main content</a>
       <Sidebar
-        view={view}
+        view={showOnboarding || view === "setup" ? "setup" : view}
         onView={(id) => go(id)}
+        toolsReady={toolsReady}
         conversations={conversations}
         conversationId={conversationId}
         onSelectConversation={(id) => go("chat", id)}
@@ -298,7 +414,9 @@ export function App() {
       />
       <div className="app-main" id="main">
         <header className="topbar">
-          <h1 className="page-title">{VIEW_TITLES[view] || "Local AI"}</h1>
+          <h1 className="page-title">
+            {VIEW_TITLES[showOnboarding || view === "setup" ? "setup" : view] || "Local AI"}
+          </h1>
           <div className="topbar-actions">
             <ModelStatus
               phase={generating ? "ready" : localAi.phase}

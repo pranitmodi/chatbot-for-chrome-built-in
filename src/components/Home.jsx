@@ -1,6 +1,6 @@
 import { NavIcon } from "./Icons.jsx";
 
-export function Home({ onView, recent, notes, capabilities, offline }) {
+export function Home({ onView, onStartChat, phase, recent, notes, capabilities, offline }) {
   const primary = [
     { id: "chat", label: "Chat", hint: "Ask anything locally" },
     { id: "page", label: "This page", hint: "Summarize or question a tab" },
@@ -30,8 +30,8 @@ export function Home({ onView, recent, notes, capabilities, offline }) {
         <p>
           AI processing happens on your device when Local AI is active. No account and no API key.
         </p>
-        <button type="button" className="prepare-btn home-cta" onClick={() => onView("chat")}>
-          Start chatting
+        <button type="button" className="prepare-btn home-cta" onClick={() => (onStartChat ? onStartChat() : onView("chat"))}>
+          {phase && phase !== "ready" ? "Set up Local AI" : "Start chatting"}
         </button>
       </header>
 

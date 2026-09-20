@@ -22,7 +22,7 @@ function phaseSummary(phase, offline) {
   }
   if (phase === "unsupported") {
     return {
-      title: "Not available on this device",
+      title: "Not available",
       detail: "This browser does not expose Chrome’s Prompt API.",
     };
   }

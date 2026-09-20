@@ -12,6 +12,7 @@ import {
 export function Sidebar({
   view,
   onView,
+  toolsReady = true,
   conversations,
   conversationId,
   onSelectConversation,
@@ -27,6 +28,13 @@ export function Sidebar({
   onToggle,
 }) {
   const [menuId, setMenuId] = useState(null);
+
+  const navGroups = toolsReady
+    ? NAV_GROUPS
+    : NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => item.id === "status"),
+      })).filter((group) => group.items.length);
 
   return (
     <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
@@ -47,14 +55,16 @@ export function Sidebar({
         )}
       </div>
 
-      <button type="button" className="new-chat-btn" onClick={onNewChat} title="New chat">
-        <PlusIconLucide />
-        {collapsed ? null : <span>New chat</span>}
-      </button>
+      {toolsReady ? (
+        <button type="button" className="new-chat-btn" onClick={onNewChat} title="New chat">
+          <PlusIconLucide />
+          {collapsed ? null : <span>New chat</span>}
+        </button>
+      ) : null}
 
       {collapsed ? (
         <nav className="sidebar-nav rail" aria-label="Local AI">
-          {NAV_GROUPS.flatMap((group) => group.items).map((item) => (
+          {navGroups.flatMap((group) => group.items).map((item) => (
             <button
               key={item.id}
               type="button"
@@ -71,7 +81,7 @@ export function Sidebar({
           <div className="sidebar-tools">
             <p className="nav-label">Tools</p>
             <nav className="sidebar-nav" aria-label="Local AI tools">
-              {NAV_GROUPS.map((group) => (
+              {navGroups.map((group) => (
                 <div className="nav-group" key={group.id}>
                   <p className="nav-label">{group.label}</p>
                   <div className="nav-group-items">
@@ -92,6 +102,7 @@ export function Sidebar({
             </nav>
           </div>
 
+          {toolsReady ? (
           <div className="sidebar-chats">
             <div className="sidebar-search">
               <SearchIcon />
@@ -182,6 +193,9 @@ export function Sidebar({
               )}
             </div>
           </div>
+          ) : (
+            <p className="sidebar-empty onboard-nav-hint">Prepare local AI to unlock chat and tools.</p>
+          )}
         </>
       )}
 

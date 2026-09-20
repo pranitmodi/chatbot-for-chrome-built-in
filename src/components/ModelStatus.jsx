@@ -6,7 +6,7 @@ export function ModelStatus({ phase, downloadProgress, generating, contextUsage,
   let tone = "busy";
 
   if (phase === "unsupported" || phase === "unavailable") {
-    label = "Local AI not available on this device";
+    label = "Local AI not available";
     tone = "bad";
   } else if (phase === "downloadable") {
     label = "Local AI not prepared";

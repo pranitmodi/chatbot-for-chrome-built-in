@@ -10,16 +10,16 @@
     />
     <meta name="theme-color" content="#1c1914" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
     <title>Local AI</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Replaced on mount. Keeps a cold load from showing an empty window. -->
+      <div class="boot-screen">
+        <p class="boot-title">Local AI</p>
+        <p class="boot-detail">Starting on-device AI…</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

@@ -1,13 +1,61 @@
-import { buildPagePayload, getAppUrl, openApp } from "./shared.js";
+import {
+  DEFAULT_APP_URL,
+  buildPagePayload,
+  canRunActions,
+  getAppReadiness,
+  getAppUrl,
+  isAppBlocked,
+  isAppReady,
+  normalizeAppUrl,
+  openApp,
+} from "./shared.js";
 
 const statusEl = document.getElementById("status");
+const modelStatusEl = document.getElementById("modelStatus");
 const pageMetaEl = document.getElementById("pageMeta");
 const appUrlInput = document.getElementById("appUrl");
+const setupAction = document.getElementById("setupAction");
+let readiness = { phase: "unknown", updatedAt: 0 };
+let currentPage = null;
 
 function setStatus(message, tone = "") {
   statusEl.textContent = message || "";
   statusEl.dataset.tone = tone;
   statusEl.hidden = !message;
+}
+
+function readinessMessage() {
+  if (isAppReady(readiness)) return "Local AI ready · actions run in the app";
+  if (readiness.phase === "checking") return "The app is still checking Chrome’s model…";
+  if (readiness.phase === "downloading") return "The app is preparing the on-device model…";
+  if (readiness.phase === "downloadable") return "The model needs preparing once in the app";
+  if (readiness.phase === "unsupported" || readiness.phase === "unavailable") {
+    return "This Chrome can’t run Local AI · open setup for details";
+  }
+  if (readiness.phase === "error") return "The app couldn’t prepare the model · open setup";
+  if (readiness.phase === "unconfirmed") {
+    return "Your Local AI deployment doesn’t report status · actions still work";
+  }
+  return "Local AI status unknown · actions open the app anyway";
+}
+
+function renderReadiness() {
+  const ready = isAppReady(readiness);
+  const blocked = isAppBlocked(readiness);
+  const usable = canRunActions(readiness);
+
+  modelStatusEl.dataset.tone = ready ? "ok" : blocked ? "warn" : "";
+  modelStatusEl.textContent = readinessMessage();
+  setupAction.hidden = ready;
+
+  document.querySelectorAll("[data-requires-ready]").forEach((button) => {
+    const needsSelection = button.dataset.requiresSelection === "1";
+    const missingSelection = needsSelection && !currentPage?.selection;
+    button.disabled = !usable || missingSelection;
+    if (!usable) button.title = "Open Local AI setup first";
+    else if (missingSelection) button.title = "Select text on the page first";
+    else button.removeAttribute("title");
+  });
 }
 
 async function currentTab() {
@@ -58,9 +106,16 @@ function escapeHtml(value) {
 }
 
 async function runAction(kind) {
+  if (kind === "setup") {
+    setStatus("Opening Local AI setup…", "busy");
+    await openApp("setup");
+    return;
+  }
   setStatus("Reading this tab…", "busy");
   const page = await extract();
+  currentPage = page;
   renderPageMeta(page);
+  renderReadiness();
 
   if (kind === "ask") {
     setStatus("Opening Local AI…", "busy");
@@ -79,7 +134,7 @@ async function runAction(kind) {
       return;
     }
     setStatus("Opening Explain in Local AI…", "busy");
-    await openApp("explain", selection, "explain");
+    await openApp("explain", selection, "explain", { setup: isAppBlocked(readiness) });
     return;
   }
   if (kind === "rewrite") {
@@ -89,7 +144,7 @@ async function runAction(kind) {
       return;
     }
     setStatus("Opening Rewrite in Local AI…", "busy");
-    await openApp("rewrite", selection, "clearer");
+    await openApp("rewrite", selection, "clearer", { setup: isAppBlocked(readiness) });
     return;
   }
   if (kind === "summarize") {
@@ -99,7 +154,7 @@ async function runAction(kind) {
       return;
     }
     setStatus("Opening Summarize in Local AI…", "busy");
-    await openApp("page", payload, "summarize");
+    await openApp("page", payload, "summarize", { setup: isAppBlocked(readiness) });
   }
 }
 
@@ -107,15 +162,46 @@ document.querySelectorAll("[data-action]").forEach((button) => {
   button.addEventListener("click", () => runAction(button.dataset.action));
 });
 
-getAppUrl().then((value) => {
-  appUrlInput.value = value;
+document.getElementById("saveAppUrl").addEventListener("click", async () => {
+  try {
+    const appUrl = normalizeAppUrl(appUrlInput.value);
+    await chrome.storage.local.set({ appUrl, appReadiness: null });
+    appUrlInput.value = appUrl;
+    readiness = await getAppReadiness();
+    renderReadiness();
+    setStatus(`Saved. Actions now open ${new URL(appUrl).host}.`, "ok");
+  } catch (error) {
+    setStatus(error.message, "warn");
+  }
 });
 
-appUrlInput.addEventListener("change", () => {
-  chrome.storage.local.set({ appUrl: appUrlInput.value.trim() });
-  setStatus("App URL saved.", "ok");
+document.getElementById("restoreAppUrl").addEventListener("click", async () => {
+  await chrome.storage.local.set({ appUrl: DEFAULT_APP_URL, appReadiness: null });
+  appUrlInput.value = DEFAULT_APP_URL;
+  readiness = await getAppReadiness();
+  renderReadiness();
+  setStatus("Using the hosted Local AI app.", "ok");
 });
 
-extract().then(renderPageMeta).catch(() => {
-  pageMetaEl.hidden = true;
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !changes.appReadiness) return;
+  getAppReadiness().then((next) => {
+    readiness = next;
+    renderReadiness();
+  });
 });
+
+async function initialize() {
+  const [appUrl, storedReadiness, page] = await Promise.all([
+    getAppUrl(),
+    getAppReadiness(),
+    extract().catch(() => null),
+  ]);
+  appUrlInput.value = appUrl;
+  readiness = storedReadiness;
+  currentPage = page;
+  renderPageMeta(page);
+  renderReadiness();
+}
+
+initialize();

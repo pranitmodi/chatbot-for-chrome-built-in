@@ -39,6 +39,7 @@ export function Composer({
   dragActive,
 }) {
   const fileRef = useRef(null);
+  const textareaRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
@@ -153,6 +154,13 @@ export function Composer({
     };
   }, []);
 
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 180)}px`;
+  }, [value]);
+
   return (
     <div className="composer-wrap">
       <form
@@ -170,6 +178,7 @@ export function Composer({
           <p className="record-hint">Recording… tap the microphone to stop and attach.</p>
         ) : null}
         <textarea
+          ref={textareaRef}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
@@ -180,7 +189,7 @@ export function Composer({
               onPickFiles(files);
             }
           }}
-          placeholder="Message…"
+          placeholder="Ask Local AI…"
           disabled={disabled || generating || recording}
           rows={2}
           aria-label="Message"
@@ -247,7 +256,9 @@ export function Composer({
           )}
         </div>
       </form>
-      <p className="privacy">This app doesn't send your prompts to our AI server. Chrome may still download the on-device model.</p>
+      <p className="privacy">
+        Enter to send · Shift+Enter for a new line · processed by Chrome on this device
+      </p>
       <CameraCapture open={cameraOpen} onClose={onCameraClose} onCapture={onCameraCapture} />
     </div>
   );

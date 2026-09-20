@@ -1,12 +1,42 @@
-export function CompatibilityPanel({ phase }) {
+export function CompatibilityPanel({ phase, compact = false }) {
   const unsupported = phase === "unsupported";
+
+  if (compact) {
+    return (
+      <section className="compat" aria-live="polite">
+        <h2>{unsupported ? "Use desktop Chrome" : "This device cannot run Local AI yet"}</h2>
+        {unsupported ? (
+          <ol className="setup-steps">
+            <li>
+              <strong>Open this page in desktop Google Chrome.</strong> Safari, Firefox, and Chrome on
+              iOS or Android do not provide this API.
+            </li>
+          </ol>
+        ) : (
+          <ol className="setup-steps">
+            <li>
+              <strong>Update Chrome</strong> to 148 or later, with about 22 GB free disk and a supported
+              desktop (Windows 10/11, macOS 13+, Linux, or Chromebook Plus).
+            </li>
+            <li>
+              <strong>If it still fails,</strong> open <code>chrome://on-device-internals</code> and check
+              Model Status, then retry.
+            </li>
+          </ol>
+        )}
+        <p>
+          Setup details stay in Chrome’s docs — this app does not fall back to a hosted model.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="compat" aria-live="polite">
       <h2>
         {unsupported
           ? "Built-in AI unavailable"
-          : "Chrome's built-in AI isn't available on this device yet."}
+          : "Chrome's built-in AI isn't available yet."}
       </h2>
       <p>
         This chatbot uses Chrome's built-in Prompt API and an on-device language model. Follow these

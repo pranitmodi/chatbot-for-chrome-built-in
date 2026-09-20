@@ -31,5 +31,5 @@ export function buildCapabilities(modalities = {}) {
 
 export function capabilityLabel(capabilities, key) {
   if (!capabilities) return "Unknown";
-  return capabilities[key] ? "Available" : "Not available on this device";
+  return capabilities[key] ? "Available" : "Not available";
 }
