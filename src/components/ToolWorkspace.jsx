@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { categorizeError } from "../ai/errors.js";
 import { createNote, deriveNoteTitle } from "../storage/notes.js";
 import { RichInput, RichResult } from "./RichDoc.jsx";
-import { handoffHasRun, markHandoffRun } from "../features/navigation.js";
 import { openDraft } from "../features/drafts.js";
 
 export function ToolWorkspace({
@@ -17,8 +16,6 @@ export function ToolWorkspace({
   buildPrompt,
   initialInput = "",
   extraActions,
-  autoRun = false,
-  handoffId,
   sourceLabel,
 }) {
   const [input, setInput] = useState(initialInput);
@@ -49,20 +46,6 @@ export function ToolWorkspace({
       setBusy(false);
     }
   }
-
-  useEffect(() => {
-    if (!autoRun || !handoffId || phase !== "ready" || !input.trim() || handoffHasRun(handoffId)) {
-      return undefined;
-    }
-    const timer = window.setTimeout(() => {
-      if (handoffHasRun(handoffId)) return;
-      markHandoffRun(handoffId);
-      run();
-    }, 0);
-    return () => window.clearTimeout(timer);
-    // Run only when a pending handoff becomes ready.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRun, handoffId, phase]);
 
   useEffect(
     () => () => {

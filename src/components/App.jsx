@@ -12,13 +12,7 @@ import { InstallApp } from "./InstallApp.jsx";
 import { ModelStatus } from "./ModelStatus.jsx";
 import { MoonIcon, SunIcon } from "./Icons.jsx";
 import { useLocalAi } from "../hooks/useLocalAi.js";
-import {
-  consumeHandoff,
-  isKnownView,
-  parseHash,
-  setHash,
-  VIEW_TITLES,
-} from "../features/navigation.js";
+import { isKnownView, parseHash, setHash, VIEW_TITLES } from "../features/navigation.js";
 import {
   defaultLandingView,
   isOnboarded,
@@ -84,14 +78,6 @@ export function App() {
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
   }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.localAiPhase = localAi.phase;
-    window.postMessage(
-      { type: "local-ai:status", phase: localAi.phase, updatedAt: Date.now() },
-      window.location.origin,
-    );
-  }, [localAi.phase]);
 
   useEffect(() => {
     const fallback = defaultLandingView(isOnboarded());
@@ -162,23 +148,14 @@ export function App() {
     }),
     [localAi.provider, localAi.phase, localAi.prepareModel],
   );
-  const genericHandoff = useMemo(
-    () => (["rewrite", "summarize", "proofread", "extract", "study"].includes(view)
-      ? consumeHandoff(view)
-      : null),
-    [view],
-  );
   const genericDraft = useMemo(
-    () => (["rewrite", "summarize", "proofread", "extract", "study"].includes(view)
+    () => (["page", "explain", "rewrite", "summarize", "proofread", "extract", "study"].includes(view)
       ? draftFromCurrentRoute(view)
       : null),
     [view],
   );
 
-  const routeParams = parseHash().params;
-  const setupRequested = routeParams.get("setup") === "1";
-  const showOnboarding =
-    (!onboarded || setupRequested) && view !== "status" && localAi.phase !== "ready";
+  const showOnboarding = !onboarded && view !== "status" && localAi.phase !== "ready";
   const toolsReady = localAi.phase === "ready";
 
   function renderWizard() {
@@ -192,9 +169,7 @@ export function App() {
         onComplete={() => {
           markOnboarded();
           setOnboarded(true);
-          const resume = resumeAfterSetup(view, parseHash().params);
-          setView(resume.target);
-          setHash(resume.target, resume.params);
+          go(resumeAfterSetup(view));
         }}
       />
     );
@@ -242,9 +217,21 @@ export function App() {
       />
     );
   } else if (view === "page") {
-    main = <PageAiView {...toolProps} />;
+    main = (
+      <PageAiView
+        {...toolProps}
+        initialInput={genericDraft?.content || ""}
+        sourceLabel={genericDraft?.source}
+      />
+    );
   } else if (view === "explain") {
-    main = <ExplainView {...toolProps} />;
+    main = (
+      <ExplainView
+        {...toolProps}
+        initialInput={genericDraft?.content || ""}
+        sourceLabel={genericDraft?.source}
+      />
+    );
   } else if (view === "summarize") {
     main = (
       <ToolWorkspace
@@ -260,11 +247,9 @@ export function App() {
           { id: "facts", label: "Key facts" },
         ]}
         defaultMode="paragraph"
-        placeholder="Paste text, a note, or a page extract"
-        initialInput={genericHandoff?.payload || genericDraft?.content || ""}
-        sourceLabel={genericHandoff ? "Extension" : genericDraft?.source}
-        autoRun={genericHandoff?.autoRun}
-        handoffId={genericHandoff?.id}
+        placeholder="Paste text, a note, or an article extract"
+        initialInput={genericDraft?.content || ""}
+        sourceLabel={genericDraft?.source}
         buildPrompt={buildSummaryPrompt}
       />
     );
@@ -285,10 +270,8 @@ export function App() {
         ]}
         defaultMode="clearer"
         placeholder="Paste text to rewrite"
-        initialInput={genericHandoff?.payload || genericDraft?.content || ""}
-        sourceLabel={genericHandoff ? "Extension" : genericDraft?.source}
-        autoRun={genericHandoff?.autoRun}
-        handoffId={genericHandoff?.id}
+        initialInput={genericDraft?.content || ""}
+        sourceLabel={genericDraft?.source}
         buildPrompt={buildRewritePrompt}
       />
     );

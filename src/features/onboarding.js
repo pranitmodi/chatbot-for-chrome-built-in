@@ -51,9 +51,7 @@ export function defaultLandingView(onboarded) {
   return onboarded ? "home" : "setup";
 }
 
-export function resumeAfterSetup(view, params) {
-  const target = !["setup", "home", "status"].includes(view) ? view : "chat";
-  const nextParams = new URLSearchParams(params);
-  nextParams.delete("setup");
-  return { target, params: nextParams };
+/** Where to land once setup completes: back to the tool that was asked for, otherwise chat. */
+export function resumeAfterSetup(view) {
+  return ["setup", "home", "status"].includes(view) ? "chat" : view;
 }

@@ -532,30 +532,6 @@ button {
   gap: var(--section-gap);
 }
 
-.page-tool {
-  width: min(100%, 76rem);
-  max-width: 76rem;
-  margin: 0 auto;
-  padding: var(--space-6) var(--space-6) var(--space-8);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-.page-tool .panel-page {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  padding: 0;
-  gap: var(--space-5);
-}
-
-.page-tool .page-source-hint {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-}
-
 .home-hero h2,
 .panel-page h2,
 .page-title {
@@ -2274,8 +2250,7 @@ button {
   }
 
   .home,
-  .panel-page,
-  .page-tool {
+  .panel-page {
     padding: var(--space-5) var(--space-4) var(--space-8);
     gap: var(--space-6);
   }
@@ -2314,7 +2289,6 @@ button {
 
   .home,
   .panel-page,
-  .page-tool,
   .transcript,
   .composer-wrap,
   .topbar {

@@ -63,14 +63,10 @@ describe("navigation landing", () => {
     expect(parseHash("setup").view).toBe("setup");
   });
 
-  it("preserves a requested extension handoff through setup", () => {
-    const params = new URLSearchParams(
-      "handoff=12345678&action=summarize&payload=page&autorun=1&setup=1",
-    );
-    const resume = resumeAfterSetup("page", params);
-    expect(resume.target).toBe("page");
-    expect(resume.params.get("handoff")).toBe("12345678");
-    expect(resume.params.get("payload")).toBe("page");
-    expect(resume.params.has("setup")).toBe(false);
+  it("returns to the requested tool after setup, and to chat otherwise", () => {
+    expect(resumeAfterSetup("summarize")).toBe("summarize");
+    expect(resumeAfterSetup("setup")).toBe("chat");
+    expect(resumeAfterSetup("home")).toBe("chat");
+    expect(resumeAfterSetup("status")).toBe("chat");
   });
 });

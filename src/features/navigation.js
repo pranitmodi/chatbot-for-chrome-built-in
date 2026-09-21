@@ -4,8 +4,8 @@ export const NAV_GROUPS = [
     label: "Ask",
     items: [
       { id: "chat", label: "Chat", icon: "chat" },
-      { id: "page", label: "This page", icon: "page" },
-      { id: "explain", label: "Selection", icon: "explain" },
+      { id: "page", label: "Analyze", icon: "page" },
+      { id: "explain", label: "Explain", icon: "explain" },
       { id: "image", label: "Image", icon: "image" },
     ],
   },
@@ -62,52 +62,3 @@ export function setHash(view, params) {
   window.location.hash = search ? `#/${view}?${search}` : `#/${view}`;
 }
 
-const ALLOWED_HANDOFF_ACTIONS = new Set([
-  "ask",
-  "summarize",
-  "explain",
-  "clearer",
-  "rewrite",
-]);
-
-export function consumeHandoff(expectedView) {
-  const { view, params } = parseHash();
-  if (view !== expectedView) return null;
-  const id = params.get("handoff");
-  if (!id || !/^[a-zA-Z0-9-]{8,80}$/.test(id)) return null;
-  const key = `local-ai-handoff:${id}`;
-  const payload = params.get("payload");
-
-  if (payload != null) {
-    const requestedAction = params.get("action") || "";
-    const action = ALLOWED_HANDOFF_ACTIONS.has(requestedAction)
-      ? requestedAction
-      : "";
-    const handoff = {
-      id,
-      view,
-      action,
-      payload: payload.slice(0, 7000),
-      autoRun: params.get("autorun") === "1" && Boolean(action),
-    };
-    sessionStorage.setItem(key, JSON.stringify(handoff));
-    const clean = new URLSearchParams({ handoff: id });
-    window.history.replaceState(null, "", `#/${view}?${clean.toString()}`);
-    return handoff;
-  }
-
-  try {
-    const stored = JSON.parse(sessionStorage.getItem(key) || "null");
-    return stored?.view === expectedView ? stored : null;
-  } catch {
-    return null;
-  }
-}
-
-export function handoffHasRun(id) {
-  return sessionStorage.getItem(`local-ai-handoff-ran:${id}`) === "1";
-}
-
-export function markHandoffRun(id) {
-  sessionStorage.setItem(`local-ai-handoff-ran:${id}`, "1");
-}

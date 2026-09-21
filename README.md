@@ -1,8 +1,10 @@
 # Local AI
 
-A static website and optional Chrome extension for **private, on-device AI** using Chrome's built-in Prompt API (`LanguageModel` / Gemini Nano).
+A static website for **private, on-device AI** using Chrome's built-in Prompt API (`LanguageModel` / Gemini Nano).
 
-There is no AI backend, no OpenAI / Anthropic / Gemini API key, and no account. Chat, notes, memory, and page tools run in the browser when Local AI is active.
+There is no AI backend, no OpenAI / Anthropic / Gemini API key, and no account. Chat, notes, memory, and the text tools all run in this one page when Local AI is active.
+
+Everything happens in a single tab. Paste or type the text you want to work on, or attach a file, image, or audio clip. The app never needs another tab, a browser extension, or access to your other pages.
 
 AI processing happens on your device when Local AI is active. This app doesn't send your prompts to our AI server. Do not read that as "nothing ever leaves your device" — Chrome may still download the on-device model, and the browser itself has its own network behavior.
 
@@ -187,17 +189,20 @@ If `LanguageModel` is missing or availability is `unavailable`, chat is disabled
 - Conversations, notes, and memories persist in IndexedDB on this browser profile. Export/import is JSON you control. There is no account backend.
 - The in-app claim is: **AI processing happens on your device when Local AI is active.** Broader claims such as "nothing ever leaves your device" are not used.
 
-## Chrome extension
+## Tools
 
-The Manifest V3 extension in `extension/` extracts the current page or selected text and opens this app. It does not fork a second Prompt API implementation.
+Every tool works on text you provide in the page — paste it, type it, or send a result over from another tool:
 
-1. Open `chrome://extensions`
-2. Enable Developer mode → Load unpacked → choose `extension/`
-3. Set the App URL in the popup (default `http://127.0.0.1:5173/` locally, or your HTTPS deploy)
-4. Select text → right-click → Explain / Summarize / Rewrite / Ask Local AI
-5. Shortcut: `Ctrl/Cmd+Shift+Space` opens the extension popup (and the same shortcut focuses chat in the app)
+| Tool | What it does |
+| --- | --- |
+| Chat | Multi-turn conversation, with file, image, and audio attachments |
+| Analyze | Summarize, explain, pull key points or numbers, challenge, or ask about a long text |
+| Explain | Unpack a passage simply, with an example, in more depth, or as a quiz |
+| Image | Describe, read text from, or analyze an attached image |
+| Summarize / Rewrite / Proofread / Extract / Study | Focused single-purpose text tools |
+| Notes / Memory | Keep results locally and reuse them |
 
-If an extension page cannot create `LanguageModel`, inference still happens in the PWA origin. The extension will not fake local inference.
+Results can be saved as a note or handed to another tool without going through the URL.
 
 ## Keyboard shortcut
 
@@ -223,11 +228,9 @@ npm test
 src/
   ai/           provider, capabilities, chrome availability/session/streaming, prompts
   storage/      IndexedDB repositories (conversations, notes, memories, search)
-  page/         page extraction (untrusted data)
-  features/     memory, chat context, navigation, dedicated Chrome APIs
+  features/     memory, chat context, navigation, drafts, onboarding
   components/   shell, chat, tools, notes, memory, status
   hooks/useLocalAi.js
-extension/      Manifest V3 popup, content script, context menus
 ```
 
 UI code talks to `ChromeLocalProvider` (`src/ai/provider.js`) only. Prompt API calls stay in `src/ai/chrome/`. A remote provider is intentionally not included.

@@ -3,7 +3,7 @@ import { NavIcon } from "./Icons.jsx";
 export function Home({ onView, onStartChat, phase, recent, notes, capabilities, offline }) {
   const primary = [
     { id: "chat", label: "Chat", hint: "Ask anything locally" },
-    { id: "page", label: "This page", hint: "Summarize or question a tab" },
+    { id: "page", label: "Analyze", hint: "Summarize or question long text" },
     {
       id: "image",
       label: "Image",
