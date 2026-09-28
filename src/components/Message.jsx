@@ -80,13 +80,11 @@ export function Message({ message, onSaveNote, onRegenerate, onContinue }) {
         <AttachmentList attachments={message.attachments} />
         {isUser ? (
           message.text ? <div className="bubble">{message.text}</div> : null
+        ) : message.text ? (
+          <div className="bubble markdown" dangerouslySetInnerHTML={{ __html: html }} />
         ) : (
           <div className="bubble markdown">
-            {message.text ? (
-              <div dangerouslySetInnerHTML={{ __html: html }} />
-            ) : (
-              <span className="thinking">Thinking…</span>
-            )}
+            <span className="thinking">Thinking…</span>
           </div>
         )}
         {message.stopped ? <div className="stopped">Generation stopped.</div> : null}
