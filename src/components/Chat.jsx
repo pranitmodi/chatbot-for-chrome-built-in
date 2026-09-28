@@ -4,9 +4,10 @@ import { categorizeError } from "../ai/errors.js";
 import { buildSystemPrompt } from "../ai/systemPrompt.js";
 import {
   MAX_ATTACHMENTS,
+  appendDocumentsToDraft,
   attachmentToMediaParts,
+  ingestFiles,
   prepareCameraCapture,
-  prepareFiles,
   prepareMicrophoneCapture,
   revokeAll,
   revokeAttachment,
@@ -197,13 +198,16 @@ export function Chat({
     const files = [...(fileList || [])];
     if (!files.length) return;
     setFileError(null);
-    if (attachments.length + files.length > MAX_ATTACHMENTS) {
-      setFileError(`You can attach up to ${MAX_ATTACHMENTS} items.`);
-      return;
-    }
     try {
-      const prepared = await prepareFiles(files, capabilities);
-      setAttachments((current) => [...current, ...prepared]);
+      const { attachments: prepared, documents } = await ingestFiles(files, capabilities, {
+        maxAttachments: MAX_ATTACHMENTS - attachments.length,
+      });
+      if (prepared.length) {
+        setAttachments((current) => [...current, ...prepared]);
+      }
+      if (documents.length) {
+        setDraft((current) => appendDocumentsToDraft(current, documents));
+      }
     } catch (caught) {
       setFileError(caught.message || "Couldn't attach that file.");
     }
@@ -657,7 +661,7 @@ export function Chat({
 
       {dragActive && !composerDisabled ? (
         <div className="drop-mask">
-          <span>Drop an image, audio, or video file</span>
+          <span>Drop a text, image, audio, or video file</span>
         </div>
       ) : null}
     </>

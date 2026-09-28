@@ -1,4 +1,5 @@
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_TEXT_FILE_BYTES = 1 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 1280;
 const MAX_VIDEO_FRAMES = 8;
 const MAX_ATTACHMENTS = 4;
@@ -21,8 +22,33 @@ const VIDEO_TYPES = new Set([
   "video/quicktime",
   "video/ogg",
 ]);
+const TEXT_TYPES = new Set([
+  "text/plain",
+  "text/markdown",
+  "text/x-markdown",
+  "text/csv",
+  "text/tab-separated-values",
+  "text/html",
+  "text/css",
+  "text/javascript",
+  "text/xml",
+  "text/yaml",
+  "text/x-yaml",
+  "text/x-python",
+  "text/x-sh",
+  "text/x-shellscript",
+  "application/json",
+  "application/xml",
+  "application/javascript",
+  "application/x-javascript",
+  "application/yaml",
+  "application/x-yaml",
+  "application/sql",
+]);
+const TEXT_EXTENSIONS =
+  /\.(txt|md|markdown|mdown|csv|tsv|json|xml|ya?ml|log|rst|tex|html?|css|js|mjs|cjs|ts|jsx|tsx|py|rb|go|rs|java|c|cc|cpp|h|hpp|hh|sh|bash|zsh|sql|ini|toml|cfg|conf|env|rtf)$/i;
 
-export { MAX_FILE_BYTES, MAX_ATTACHMENTS, MAX_VIDEO_FRAMES };
+export { MAX_FILE_BYTES, MAX_TEXT_FILE_BYTES, MAX_ATTACHMENTS, MAX_VIDEO_FRAMES };
 
 export function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -34,12 +60,63 @@ export function classifyFile(file) {
   if (IMAGE_TYPES.has(file.type)) return "image";
   if (AUDIO_TYPES.has(file.type)) return "audio";
   if (VIDEO_TYPES.has(file.type)) return "video";
+  if (TEXT_TYPES.has(file.type) || (file.type || "").startsWith("text/")) return "text";
 
   const name = file.name.toLowerCase();
   if (/\.(png|jpe?g|webp)$/.test(name)) return "image";
   if (/\.(mp3|wav|webm|m4a|ogg|aac|flac)$/.test(name)) return "audio";
   if (/\.(mp4|webm|mov|ogg)$/.test(name)) return "video";
+  if (TEXT_EXTENSIONS.test(name)) return "text";
   return null;
+}
+
+export function validateTextFileSize(file) {
+  if (file.size > MAX_TEXT_FILE_BYTES) {
+    throw Object.assign(
+      new Error(
+        `${file.name} is ${formatBytes(file.size)}. Keep text documents under ${formatBytes(MAX_TEXT_FILE_BYTES)}.`,
+      ),
+      { name: "FileTooLargeError" },
+    );
+  }
+}
+
+async function readFileAsText(file) {
+  if (typeof FileReader !== "undefined") {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(reader.error || new Error("Could not read this text file."));
+      reader.readAsText(file);
+    });
+  }
+  if (typeof file?.text === "function") {
+    return file.text();
+  }
+  throw new Error("Could not read this text file.");
+}
+
+export async function readTextDocument(file) {
+  validateTextFileSize(file);
+  const text = await readFileAsText(file);
+  return {
+    name: file.name || "document.txt",
+    text: text.replace(/^\uFEFF/, ""),
+  };
+}
+
+export function formatTextDocument(name, text) {
+  const body = String(text ?? "").trimEnd();
+  return `--- ${name} ---\n${body}\n`;
+}
+
+export function appendDocumentsToDraft(draft, documents) {
+  if (!documents?.length) return draft || "";
+  const blocks = documents.map((doc) => formatTextDocument(doc.name, doc.text)).join("\n");
+  if (!String(draft || "").trim()) {
+    return blocks;
+  }
+  return `${String(draft).trimEnd()}\n\n${blocks}`;
 }
 
 export function validateFileSize(file) {
@@ -240,7 +317,7 @@ export async function prepareFiles(files, capabilities) {
   const prepared = [];
   for (const file of files) {
     const kind = classifyFile(file);
-    if (!kind) {
+    if (!kind || kind === "text") {
       throw Object.assign(
         new Error(`${file.name} isn't a supported image, audio, or video file.`),
         { name: "UnsupportedFileError" },
@@ -273,6 +350,70 @@ export async function prepareFiles(files, capabilities) {
     }
   }
   return prepared;
+}
+
+/**
+ * Ingest picker/drop files for chat: media becomes attachments, text docs become draft content.
+ * @param {FileList | File[]} files
+ * @param {import("./types.js").Capabilities | Record<string, boolean>} capabilities
+ * @param {{ maxAttachments?: number }} [options]
+ */
+export async function ingestFiles(files, capabilities, options = {}) {
+  const list = [...(files || [])];
+  const maxAttachments = options.maxAttachments ?? MAX_ATTACHMENTS;
+  const mediaFiles = list.filter((file) => {
+    const kind = classifyFile(file);
+    return kind === "image" || kind === "audio" || kind === "video";
+  });
+  if (mediaFiles.length > maxAttachments) {
+    throw Object.assign(new Error(`You can attach up to ${MAX_ATTACHMENTS} media items.`), {
+      name: "TooManyAttachmentsError",
+    });
+  }
+
+  const attachments = [];
+  const documents = [];
+  for (const file of list) {
+    const kind = classifyFile(file);
+    if (!kind) {
+      throw Object.assign(
+        new Error(
+          `${file.name} isn't a supported text, image, audio, or video file.`,
+        ),
+        { name: "UnsupportedFileError" },
+      );
+    }
+    if (kind === "text") {
+      documents.push(await readTextDocument(file));
+      continue;
+    }
+    if (kind === "image") {
+      if (!capabilities.image) {
+        throw Object.assign(
+          new Error("Image input isn't available in this Chrome configuration."),
+          { name: "NotSupportedError" },
+        );
+      }
+      attachments.push(await prepareImageFile(file));
+    } else if (kind === "audio") {
+      if (!capabilities.audio) {
+        throw Object.assign(
+          new Error("Audio analysis isn't available in this Chrome configuration."),
+          { name: "NotSupportedError" },
+        );
+      }
+      attachments.push(await prepareAudioFile(file));
+    } else if (kind === "video") {
+      if (!capabilities.videoFrames) {
+        throw Object.assign(
+          new Error("Video analysis isn't available because image input isn't supported."),
+          { name: "NotSupportedError" },
+        );
+      }
+      attachments.push(await extractVideoFrames(file));
+    }
+  }
+  return { attachments, documents };
 }
 
 export function attachmentToMediaParts(attachment) {

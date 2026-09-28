@@ -2,6 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import "fake-indexeddb/auto";
 import { mergeStreamChunk, streamPrompt } from "../ai/chrome/streaming.js";
 import { checkChromeAvailability, selectAvailabilityPlan } from "../ai/chrome/availability.js";
+import {
+  appendDocumentsToDraft,
+  classifyFile,
+  formatTextDocument,
+  ingestFiles,
+  readTextDocument,
+} from "../ai/multimodal.js";
 import { AVAILABILITY } from "../ai/types.js";
 import { parseMemoryCommand, looksSensitive } from "../features/memory/commands.js";
 import { retrieveMemories } from "../features/memory/retrieval.js";
@@ -72,6 +79,35 @@ describe("availability plan", () => {
     expect(plan.image).toBe(false);
     expect(plan.audio).toBe(false);
     expect(plan.inputs).toEqual([{ type: "text", languages: ["en"] }]);
+  });
+});
+
+describe("text documents", () => {
+  it("classifies common text and markdown files", () => {
+    expect(classifyFile(new File(["hi"], "notes.txt", { type: "text/plain" }))).toBe("text");
+    expect(classifyFile(new File(["# Hi"], "readme.md", { type: "" }))).toBe("text");
+    expect(classifyFile(new File(["{}"], "data.json", { type: "application/json" }))).toBe("text");
+    expect(classifyFile(new File(["x"], "photo.png", { type: "image/png" }))).toBe("image");
+  });
+
+  it("reads a text document and formats it for the draft", async () => {
+    const file = new File(["Hello from a note"], "meeting.md", { type: "text/markdown" });
+    const document = await readTextDocument(file);
+    expect(document).toEqual({ name: "meeting.md", text: "Hello from a note" });
+    expect(formatTextDocument(document.name, document.text)).toBe(
+      "--- meeting.md ---\nHello from a note\n",
+    );
+    expect(appendDocumentsToDraft("Ask about this:", [document])).toContain("meeting.md");
+    expect(appendDocumentsToDraft("Ask about this:", [document])).toContain("Hello from a note");
+  });
+
+  it("ingests text into documents and leaves media for attachments", async () => {
+    const result = await ingestFiles(
+      [new File(["body"], "spec.txt", { type: "text/plain" })],
+      { image: false, audio: false, videoFrames: false },
+    );
+    expect(result.attachments).toEqual([]);
+    expect(result.documents).toEqual([{ name: "spec.txt", text: "body" }]);
   });
 });
 

@@ -4,7 +4,7 @@ A static website for **private, on-device AI** using Chrome's built-in Prompt AP
 
 There is no AI backend, no OpenAI / Anthropic / Gemini API key, and no account. Chat, notes, memory, and the text tools all run in this one page when Local AI is active.
 
-Everything happens in a single tab. Paste or type the text you want to work on, or attach a file, image, or audio clip. The app never needs another tab or access to your other pages.
+Everything happens in a single tab. Paste or type the text you want to work on, or attach a text document, image, audio, or video clip. Text and Markdown files are read into the message box; media stays as attachments. The app never needs another tab or access to your other pages.
 
 AI processing happens on your device when Local AI is active. This app doesn't send your prompts to our AI server. Do not read that as "nothing ever leaves your device" — Chrome may still download the on-device model, and the browser itself has its own network behavior.
 

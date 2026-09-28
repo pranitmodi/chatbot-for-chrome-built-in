@@ -45,7 +45,7 @@ export function Composer({
   const streamRef = useRef(null);
   const cancelledRef = useRef(false);
   const [recording, setRecording] = useState(false);
-  const canAttach = capabilities.image || capabilities.audio || capabilities.videoFrames;
+  const canAttach = true;
   const canSend = !disabled && (value.trim() || attachments.length) && !generating;
   const canRecord =
     !disabled &&
@@ -62,7 +62,49 @@ export function Composer({
   }
 
   function acceptAttribute() {
-    const parts = [];
+    const parts = [
+      "text/plain",
+      "text/markdown",
+      "text/csv",
+      "text/html",
+      "text/css",
+      "text/javascript",
+      "text/xml",
+      "application/json",
+      "application/xml",
+      "application/javascript",
+      ".txt",
+      ".md",
+      ".markdown",
+      ".csv",
+      ".tsv",
+      ".json",
+      ".xml",
+      ".yaml",
+      ".yml",
+      ".log",
+      ".rst",
+      ".tex",
+      ".html",
+      ".htm",
+      ".css",
+      ".js",
+      ".ts",
+      ".jsx",
+      ".tsx",
+      ".py",
+      ".rb",
+      ".go",
+      ".rs",
+      ".java",
+      ".c",
+      ".cpp",
+      ".h",
+      ".sh",
+      ".sql",
+      ".toml",
+      ".ini",
+    ];
     if (capabilities.image) parts.push("image/png", "image/jpeg", "image/webp");
     if (capabilities.audio) parts.push("audio/*");
     if (capabilities.videoFrames) parts.push("video/mp4", "video/webm", "video/quicktime");
@@ -209,7 +251,7 @@ export function Composer({
             />
             <ComposerToolButton
               label="Attach a file"
-              title={canAttach ? "Attach a file" : "Attachments are not available"}
+              title="Attach a text, image, audio, or video file"
               disabled={disabled || generating || recording || !canAttach}
               onClick={() => fileRef.current?.click()}
             >
