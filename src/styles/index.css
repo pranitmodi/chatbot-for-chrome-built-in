@@ -598,7 +598,9 @@ button {
 .primary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
+  grid-template-rows: auto auto;
+  column-gap: var(--space-3);
+  row-gap: var(--space-3);
 }
 
 .tool-card {
@@ -610,9 +612,17 @@ button {
   color: var(--ink);
 }
 
+.tool-card.featured {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 2;
+  align-items: start;
+}
+
 .tool-card.featured strong {
   display: block;
   font-size: 1.05rem;
+  line-height: 1.3;
 }
 
 .tool-card span {
@@ -621,6 +631,10 @@ button {
   color: var(--ink-soft);
   font-size: 0.86rem;
   line-height: 1.45;
+}
+
+.tool-card.featured span {
+  margin-top: 0;
 }
 
 .home-more-label {
@@ -717,7 +731,7 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: var(--space-5);
-  align-items: start;
+  align-items: stretch;
 }
 
 .tool-compose,
@@ -726,14 +740,13 @@ button {
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+  height: min(68vh, 720px);
+  max-height: min(68vh, 720px);
+  overflow: hidden;
   padding: var(--space-5);
   border: 1px solid var(--line);
   border-radius: calc(var(--radius) + 2px);
   background: var(--assistant-bubble);
-}
-
-.tool-thread {
-  min-height: 320px;
 }
 
 .tool-card-heading {
@@ -805,6 +818,12 @@ button {
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+  min-height: 0;
+}
+
+.tool-compose .rich-input,
+.tool-thread .rich-result {
+  flex: 1;
 }
 
 .rich-toolbar {
@@ -838,9 +857,10 @@ button {
   color: var(--ink);
   font: inherit;
   line-height: 1.55;
-  min-height: 140px;
-  max-height: 280px;
-  resize: vertical;
+  min-height: 0;
+  flex: 1;
+  resize: none;
+  overflow: auto;
   outline: none;
 }
 
@@ -854,11 +874,23 @@ button {
   color: var(--ink);
   line-height: 1.6;
   font-size: 0.98rem;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .tool-thread .rich-result-body {
   font-size: 1rem;
   line-height: 1.7;
+}
+
+.rich-result-stream {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  line-height: 1.55;
 }
 
 .rich-result-body > div > *:first-child {
@@ -879,8 +911,10 @@ button {
   font-family: var(--mono);
   font-size: 0.86rem;
   line-height: 1.55;
-  min-height: 160px;
-  resize: vertical;
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  overflow: auto;
   outline: none;
 }
 
@@ -2260,6 +2294,22 @@ button {
   .tool-flow,
   .starters {
     grid-template-columns: 1fr;
+  }
+
+  .primary-grid {
+    grid-template-rows: none;
+  }
+
+  .tool-card.featured {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    grid-row: auto;
+    grid-template-rows: none;
+  }
+
+  .tool-card.featured span {
+    margin-top: var(--space-3);
   }
 
   .home,

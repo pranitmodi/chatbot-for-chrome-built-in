@@ -3,8 +3,17 @@ import { categorizeError } from "../ai/errors.js";
 import { createNote, deriveNoteTitle } from "../storage/notes.js";
 import { RichInput, RichResult } from "./RichDoc.jsx";
 import { openDraft } from "../features/drafts.js";
+import {
+  getToolMode,
+  rememberToolResult,
+  resultForTool,
+  setSharedToolInput,
+  setToolMode,
+  useToolSession,
+} from "../features/toolSession.js";
 
 export function ToolWorkspace({
+  toolId,
   title,
   description,
   modes = [],
@@ -18,37 +27,74 @@ export function ToolWorkspace({
   extraActions,
   sourceLabel,
 }) {
-  const [input, setInput] = useState(initialInput);
-  const [mode, setMode] = useState(defaultMode || modes[0]?.id || "");
-  const [output, setOutput] = useState("");
+  const session = useToolSession({ content: initialInput, source: sourceLabel });
+  const input = session.input;
+  const [mode, setModeState] = useState(
+    () => getToolMode(toolId) || defaultMode || modes[0]?.id || "",
+  );
+  const [liveOutput, setLiveOutput] = useState("");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const abortRef = useRef(null);
+  const outputRef = useRef("");
+  const unmountedRef = useRef(false);
+  const savedOutput = resultForTool(toolId, mode, input);
+  const output = busy ? liveOutput : savedOutput;
+
+  function setMode(next) {
+    setModeState(next);
+    setToolMode(toolId, next);
+  }
+
+  function onOutputChange(next) {
+    outputRef.current = next;
+    if (busy) {
+      setLiveOutput(next);
+      return;
+    }
+    rememberToolResult(toolId, mode, input, next);
+  }
 
   async function run() {
     if (!input.trim() || phase !== "ready") return;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    const sourceText = input;
+    const sourceMode = mode;
+    outputRef.current = "";
+    setLiveOutput("");
     setBusy(true);
     setError(null);
-    setOutput("");
+    let failed = false;
     try {
       await provider.createSession();
-      const prompt = buildPrompt(input, mode);
-      await provider.streamEphemeral(prompt, setOutput, controller.signal);
+      const prompt = buildPrompt(sourceText, sourceMode);
+      await provider.streamEphemeral(
+        prompt,
+        (chunk) => {
+          outputRef.current = chunk;
+          setLiveOutput(chunk);
+        },
+        controller.signal,
+      );
     } catch (caught) {
       if (caught?.name !== "AbortError") {
+        failed = true;
         setError(categorizeError(caught) || "Couldn't run that locally.");
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
+      if (!unmountedRef.current && !(failed && !outputRef.current)) {
+        rememberToolResult(toolId, sourceMode, sourceText, outputRef.current);
+      }
       setBusy(false);
     }
   }
 
   useEffect(
     () => () => {
+      unmountedRef.current = true;
       abortRef.current?.abort();
     },
     [],
@@ -60,7 +106,7 @@ export function ToolWorkspace({
     <div className="panel-page tool-workspace">
       <header className="panel-intro">
         <p className="lede">{description}</p>
-        {sourceLabel ? <p className="source-label">Source · {sourceLabel}</p> : null}
+        {session.sourceLabel ? <p className="source-label">Source · {session.sourceLabel}</p> : null}
       </header>
 
       {phase !== "ready" ? (
@@ -77,18 +123,18 @@ export function ToolWorkspace({
           <div className="tool-card-heading">
             <div>
               <span className="eyebrow">Input</span>
-              <strong>{sourceLabel || "Your source material"}</strong>
+              <strong>{session.sourceLabel || "Your source material"}</strong>
             </div>
             <span className="character-count">{input.length.toLocaleString()} characters</span>
           </div>
           <RichInput
             value={input}
-            onChange={setInput}
+            onChange={setSharedToolInput}
             placeholder={placeholder}
             label="Source"
             aria-label={title}
             disabled={busy}
-            onClear={() => setInput("")}
+            onClear={() => setSharedToolInput("")}
           />
           {modes.length ? (
             <div className="mode-row" role="group" aria-label="Output mode">
@@ -134,7 +180,7 @@ export function ToolWorkspace({
           </div>
           <RichResult
             value={output}
-            onChange={setOutput}
+            onChange={onOutputChange}
             busy={busy}
             actions={
               output ? (

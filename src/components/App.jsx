@@ -237,6 +237,7 @@ export function App() {
     main = (
       <ToolWorkspace
         {...toolProps}
+        toolId="summarize"
         title="Summarize"
         description="Stay grounded in the supplied material. No web browsing."
         modes={[
@@ -258,6 +259,7 @@ export function App() {
     main = (
       <ToolWorkspace
         {...toolProps}
+        toolId="rewrite"
         title="Rewrite"
         description="Meaning is preserved. The rewritten version is shown explicitly — nothing is replaced in place."
         modes={[
@@ -280,11 +282,12 @@ export function App() {
     main = (
       <ToolWorkspace
         {...toolProps}
+        toolId="proofread"
         title="Proofread"
         description={
           localAi.capabilities.proofreading
             ? "Chrome's Proofreader API is available; Prompt API is the fallback."
-            : "Uses the on-device Prompt API. Original, suggested version, and explanation are requested."
+            : "Uses the on-device Prompt API. The result shows a suggested version and a short explanation."
         }
         placeholder="Paste text to proofread"
         initialInput={genericDraft?.content || ""}
@@ -296,6 +299,7 @@ export function App() {
     main = (
       <ToolWorkspace
         {...toolProps}
+        toolId="extract"
         title="Extract"
         description="Returns JSON. Nothing extracted here is executed as an action."
         placeholder="Paste unstructured text"
@@ -315,6 +319,7 @@ export function App() {
     main = (
       <ToolWorkspace
         {...toolProps}
+        toolId="study"
         title="Study"
         description="Grounded in the material you provide. Local AI will not pretend to browse."
         modes={[

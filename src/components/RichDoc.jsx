@@ -12,6 +12,17 @@ function looksLikeJson(text) {
   }
 }
 
+function looksLikeJsonStream(text) {
+  const trimmed = String(text || "").trim();
+  return (
+    trimmed.startsWith("{") ||
+    trimmed.startsWith("[") ||
+    trimmed.startsWith("```json") ||
+    trimmed.startsWith("```\n{") ||
+    trimmed.startsWith("```\n[")
+  );
+}
+
 /** Format plain model output for richer markdown display (JSON fences, etc.). */
 export function enrichDisplayText(text) {
   if (!text) return "";
@@ -110,13 +121,14 @@ export function RichResult({
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
   const previewRef = useRef(null);
-  const display = enrichDisplayText(value);
-  const html = display ? renderMarkdown(display) : "";
+  const streamingJson = busy && looksLikeJsonStream(value);
+  const display = streamingJson ? value : enrichDisplayText(value);
+  const html = !streamingJson && display ? renderMarkdown(display) : "";
 
   useEffect(() => {
-    if (editing || !previewRef.current) return undefined;
+    if (busy || editing || !previewRef.current) return undefined;
     return attachCodeCopyButtons(previewRef.current);
-  }, [html, editing]);
+  }, [html, editing, busy]);
 
   async function copyAll() {
     try {
@@ -186,7 +198,9 @@ export function RichResult({
         />
       ) : (
         <div className="rich-result-body markdown" ref={previewRef}>
-          {value ? (
+          {streamingJson ? (
+            <pre className="rich-result-stream">{value}</pre>
+          ) : value ? (
             <div dangerouslySetInnerHTML={{ __html: html }} />
           ) : (
             <span className="thinking">Thinking…</span>

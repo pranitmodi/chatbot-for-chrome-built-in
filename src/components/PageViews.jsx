@@ -4,6 +4,7 @@ import { buildPagePrompt, buildSelectionPrompt } from "../ai/prompts.js";
 export function PageAiView({ provider, phase, prepareModel, initialInput = "", sourceLabel }) {
   return (
     <ToolWorkspace
+      toolId="page"
       title="Analyze text"
       description="Paste an article, transcript, or any long text. Modes keep the same text and only change the task."
       modes={[
@@ -32,6 +33,7 @@ export function PageAiView({ provider, phase, prepareModel, initialInput = "", s
 export function ExplainView({ provider, phase, prepareModel, initialInput = "", sourceLabel }) {
   return (
     <ToolWorkspace
+      toolId="explain"
       title="Explain text"
       description="Paste a passage you want unpacked. Only the text you paste is used as context."
       modes={[

@@ -5,6 +5,7 @@ import "fake-indexeddb/auto";
 import { App } from "../components/App.jsx";
 import { VIEWS } from "../features/navigation.js";
 import { clearOnboarding, markOnboarded } from "../features/onboarding.js";
+import { resetToolSession } from "../features/toolSession.js";
 
 /** Render App with availability still pending, which is the state on a cold load. */
 async function renderAt(hash) {
@@ -48,6 +49,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   clearOnboarding();
+  resetToolSession();
 });
 
 describe("no route renders a blank page while availability is being checked", () => {

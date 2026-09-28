@@ -89,8 +89,9 @@ ${wrapUntrustedData("source", text)}`;
 export function buildProofreadPrompt(text) {
   return `Proofread the following text for grammar, spelling, clarity, and punctuation.
 
-Return three labeled sections:
-Original
+The source is already visible to the user. Do not repeat it.
+
+Return two labeled sections:
 Suggested version
 Explanation
 
