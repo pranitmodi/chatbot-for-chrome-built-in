@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/pranitmodi/chatbot-for-chrome-built-in/security/advisories/new
+    about: Report security and privacy vulnerabilities privately.
+  - name: Chrome built-in AI documentation
+    url: https://developer.chrome.com/docs/ai
+    about: Check current browser support and API requirements.

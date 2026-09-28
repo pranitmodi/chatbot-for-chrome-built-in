@@ -1,5 +1,11 @@
 # Local AI — Project Overview
 
+> **Document status:** This is a snapshot of the current implementation.
+> Contributors should use it for architecture and behavior that exists today.
+> Future proposals belong in
+> [LOCAL_AI_CHROME_ROADMAP.md](LOCAL_AI_CHROME_ROADMAP.md), and executable code
+> and tests remain the final source of truth.
+
 ## What this project is
 
 Local AI is a private, local-first chatbot and productivity app built with React and Chrome's built-in Prompt API (`LanguageModel` / Gemini Nano).
@@ -238,6 +244,21 @@ In addition to chat, the application provides:
 
 These tools reuse the same local provider and centralized prompt builders. Analyze and Explain operate on text supplied inside the app; the project does not read other browser tabs.
 
+The text tools share one source input through `src/features/toolSession.js`:
+
+- text pasted into one tool stays available when the user switches to another tool
+- each tool remembers its last selected mode
+- each result is stored per tool and mode, together with the input that produced it
+- a result is shown only when the current input still matches that input, so a summary is never displayed next to text it was not generated from
+- restoring the original text brings the matching result back
+- opening a draft from another tool replaces the shared input and its source label
+
+This session state lives in memory for the current page. It is not written to IndexedDB.
+
+Proofread no longer repeats the original text, because the source is already visible. It returns only a suggested version and an explanation.
+
+While a JSON result such as Extract is still streaming, it is shown as raw text instead of being re-parsed as Markdown on every chunk. Formatting and code-copy buttons are applied once streaming finishes.
+
 ### 12. Multimodal input
 
 Where Chrome and the device support it, users can work with:
@@ -313,10 +334,16 @@ src/
 
   components/               React interface
   hooks/useLocalAi.js       model and connectivity state
-  features/                 chat context, memory, drafts, navigation
+  features/                 chat context, memory, drafts, navigation, shared tool session
   storage/                  IndexedDB repositories and import/export
   pwa/                      service-worker state helpers
   test/                     Vitest coverage
+
+.github/
+  ISSUE_TEMPLATE/           bug report and feature request forms
+  PULL_REQUEST_TEMPLATE.md  pull request checklist
+  workflows/ci.yml          install, test, and build on every pull request
+  dependabot.yml            weekly npm and monthly Actions updates
 ```
 
 The main dependency direction is:
@@ -344,9 +371,12 @@ There is intentionally no remote AI provider.
 - `marked`
 - DOMPurify
 - Lucide React
-- Vitest
+- Vitest 4
 - jsdom
 - fake-indexeddb
+- GitHub Actions and Dependabot
+
+Node.js 20 or newer is required for development.
 
 ## Testing
 
@@ -365,8 +395,11 @@ The automated test suite covers:
 - IndexedDB persistence
 - local search ranking
 - onboarding and navigation behavior
+- shared tool input and per-tool, per-mode results
 
-The current suite contains 28 passing tests, and the production PWA build succeeds.
+The current suite contains 34 passing tests across 5 files, and the production PWA build succeeds. GitHub Actions runs `npm ci`, `npm test`, and `npm run build` on Node.js 20 for every pull request and every push to `main`.
+
+Vitest was upgraded from 3.2 to 4.1.11 to fix a moderate path-traversal advisory in `@vitest/mocker`. `npm audit` now reports no known vulnerabilities.
 
 Browser-level offline verification remains a manual check:
 
@@ -395,6 +428,35 @@ This means:
 - export and import remain under user control
 
 It does not claim that the browser itself never uses the network. Chrome may download models and has its own browser-level network behavior.
+
+## Open source and contributing
+
+Local AI is open source under the [MIT License](LICENSE), copyright 2026 Pranit Modi. The repository is public at [github.com/pranitmodi/chatbot-for-chrome-built-in](https://github.com/pranitmodi/chatbot-for-chrome-built-in).
+
+The repository includes:
+
+| File | Purpose |
+| --- | --- |
+| [`LICENSE`](LICENSE) | MIT terms for use, modification, and redistribution |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | setup, architecture rules, testing, and pull request expectations |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | community standards, adapted from Contributor Covenant 2.1 |
+| [`SECURITY.md`](SECURITY.md) | private vulnerability reporting and the project's security model |
+
+Contributions are expected to keep the local-first design. Contributors should not add a backend, hosted-model fallback, required account, analytics, or API key without the maintainer's agreement first. Prompt API calls stay under `src/ai/chrome/`, capability checks stay centralized, and user content is always treated as untrusted.
+
+On GitHub:
+
+- issues use structured bug report and feature request forms, and blank issues are disabled
+- feature requests must describe their privacy, storage, and network impact
+- pull requests use a checklist covering tests, the build, capability gating, and privacy
+- the `main` branch is protected: changes go through pull requests, conversations must be resolved, and force pushes and branch deletion are blocked
+- private vulnerability reporting is enabled, so security issues can be reported without a public issue
+- Dependabot opens grouped dependency update pull requests
+- the repository has a description and topics such as `chrome`, `gemini-nano`, `local-ai`, and `pwa` to help people find it
+
+Before open-sourcing, the Git history was scanned for credentials, direct dependency licenses were checked (all MIT, ISC, Apache-2.0, or MPL-2.0/Apache-2.0), and the icons were traced to the project's initial commit.
+
+`package.json` keeps `"private": true`. This only prevents the app from being accidentally published to npm; it does not affect the open-source license.
 
 ## Why this project is important
 
@@ -426,6 +488,10 @@ The product does not silently switch to a cloud model when local AI is unavailab
 
 The project goes beyond a basic Prompt API demo. It addresses session lifecycle, streaming differences, storage, context limits, multimodal capability checks, safe rendering, model download states, PWA caching, and real offline diagnostics.
 
+### Open reference implementation
+
+Because the code is MIT-licensed, other developers can study, reuse, and extend it as a working example of a private, on-device AI application built on Chrome's built-in APIs.
+
 ## Current limitations
 
 - A supported desktop version of Chrome is required.
@@ -455,5 +521,6 @@ It combines:
 - optional multimodal workflows
 - transparent diagnostics
 - careful privacy and safety boundaries
+- an MIT-licensed codebase with CI and contributor guidelines
 
 Its main value is not merely that it can generate text. Its value is that it shows how to build a useful AI product whose default architecture is private, offline-capable, transparent, and controlled by the user.

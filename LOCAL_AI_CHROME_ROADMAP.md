@@ -1,5 +1,12 @@
 # Local AI for Chrome — Product & Engineering Roadmap
 
+> **Document status:** This is an aspirational product and engineering
+> roadmap. Some sections describe work that has since shipped, while others
+> remain proposals and are not commitments. See
+> [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) for the current implementation.
+> Open an issue before starting a large roadmap item so scope and browser API
+> support can be agreed with the maintainer.
+
 ## 1. Purpose
 
 This document is the implementation specification for evolving the existing Chrome Built-in AI chatbot into a broader **private, local-first AI layer for Chrome**.

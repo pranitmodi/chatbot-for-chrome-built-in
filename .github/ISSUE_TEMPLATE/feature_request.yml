@@ -1,0 +1,58 @@
+name: Feature request
+description: Propose an improvement that fits the local-first product
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Explain the user problem before proposing an implementation. Features
+        must preserve the project's local-first privacy model.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched existing issues and the roadmap for this proposal.
+          required: true
+        - label: This can work without adding a hosted AI fallback or required account.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user need or limitation should this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the desired behavior, not only the UI.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches or workarounds did you consider?
+  - type: textarea
+    id: capabilities
+    attributes:
+      label: Chrome capability and compatibility impact
+      description: |
+        Note any Prompt API, modality, hardware, version, or offline
+        requirements. Link official Chrome documentation when relevant.
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy, storage, and network impact
+      description: Explain any new data stored or network requests introduced.
+    validations:
+      required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add mockups, examples, or related issues.

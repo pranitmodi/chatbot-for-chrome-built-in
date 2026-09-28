@@ -8,6 +8,18 @@ Everything happens in a single tab. Paste or type the text you want to work on, 
 
 AI processing happens on your device when Local AI is active. This app doesn't send your prompts to our AI server. Do not read that as "nothing ever leaves your device" — Chrome may still download the on-device model, and the browser itself has its own network behavior.
 
+## Project status
+
+Local AI is an open-source project under active development. The core chat,
+storage, memory, focused tools, multimodal input, PWA, and diagnostics flows
+are implemented and tested. Chrome's built-in AI APIs and their device
+requirements can still change, so runtime capability detection is always the
+source of truth.
+
+See [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) for the current implementation
+and [LOCAL_AI_CHROME_ROADMAP.md](LOCAL_AI_CHROME_ROADMAP.md) for future product
+direction.
+
 ## Why there is no AI API key
 
 The chatbot calls the Prompt API that ships with Chrome. The language model is part of Chrome's on-device AI stack (Gemini Nano). The website is only a UI plus a small JavaScript wrapper. Inference happens locally after the model is available in the browser.
@@ -212,7 +224,18 @@ In the installed app or localhost tab: `Ctrl/Cmd+Shift+Space` opens Chat.
 
 ```bash
 npm test
+npm run build
 ```
+
+## Contributing
+
+Contributions are welcome. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md), follow the
+[Code of Conduct](CODE_OF_CONDUCT.md), and use the issue templates for bug
+reports and feature proposals.
+
+Please report vulnerabilities privately according to
+[SECURITY.md](SECURITY.md), not in a public issue.
 
 ## Limitations
 
@@ -234,3 +257,7 @@ src/
 ```
 
 UI code talks to `ChromeLocalProvider` (`src/ai/provider.js`) only. Prompt API calls stay in `src/ai/chrome/`. A remote provider is intentionally not included.
+
+## License
+
+[MIT](LICENSE) © 2026 Pranit Modi
