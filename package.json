@@ -34,7 +34,7 @@
   "dependencies": {
     "dompurify": "^3.2.6",
     "lucide-react": "^1.46.0",
-    "marked": "^15.0.12",
+    "marked": "^18.0.14",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
