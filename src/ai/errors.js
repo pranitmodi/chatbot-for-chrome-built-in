@@ -9,8 +9,16 @@ export const ERROR_CODE = {
   TIMEOUT: "timeout",
   DOWNLOADING: "downloading",
   UNAVAILABLE: "unavailable",
+  MODEL_NOT_DOWNLOADED: "model_not_downloaded",
   UNEXPECTED: "unexpected",
 };
+
+export const MODEL_DOWNLOAD_MESSAGE =
+  "Chrome still needs to download the on-device model. Reconnect once, finish Prepare local AI, then chat works offline.";
+
+export function needsModelDownloadMessage() {
+  return MODEL_DOWNLOAD_MESSAGE;
+}
 
 export function categorizeError(error) {
   if (!error) {
@@ -21,6 +29,9 @@ export function categorizeError(error) {
   }
   if (error.name === "QuotaExceededError" || error.code === ERROR_CODE.CONTEXT_TOO_LARGE) {
     return "This message is too large for the model's context window. Shorten it, start a new chat, or remove attachments.";
+  }
+  if (error.code === ERROR_CODE.MODEL_NOT_DOWNLOADED) {
+    return needsModelDownloadMessage();
   }
   if (error.name === "NotSupportedError" || error.code === ERROR_CODE.NOT_SUPPORTED) {
     return "This input isn't supported in the current Chrome configuration. Check Local AI Status for available modalities.";

@@ -8,10 +8,10 @@ This note is a recap of the project. For setup, see [README.md](README.md). The 
 
 ## Goal
 
-A **private AI layer for Chrome** that runs on the device: chat, memory, notes, page/selection tools, and an optional extension. No API key, no account, no cloud inference.
+A **private AI layer for Chrome** that runs on the device: chat, memory, notes, and pasted-text tools. No API key, no account, no cloud inference.
 
 ```text
-User → static PWA or extension → Chrome LanguageModel Prompt API → on-device Gemini Nano → streamed reply
+User → static PWA → Chrome LanguageModel Prompt API → on-device Gemini Nano → streamed reply
 ```
 
 ## What shipped
@@ -29,10 +29,10 @@ User → static PWA or extension → Chrome LanguageModel Prompt API → on-devi
 - Keyword retrieval of a few relevant memories; never inject the whole store
 - Settings UI; secrets are not stored
 
-### Phase 3 — Page context + extension
-- Local page extractor (noise stripping, truncation, untrusted-data prompts)
-- MV3 extension: context menu, popup, `Ctrl/Cmd+Shift+Space`
-- Extension opens the app with payload; it does not reimplement Prompt API
+### Phase 3 — Pasted text
+- Local text cleaning (noise stripping, truncation, untrusted-data prompts)
+- Analyze and Explain work on text pasted into the page
+- In-page shortcut: `Ctrl/Cmd+Shift+Space` opens Chat
 
 ### Phase 4 — Toolbox
 - Home actions: summarize, rewrite, proofread, extract, study, notes
@@ -58,5 +58,5 @@ User → static PWA or extension → Chrome LanguageModel Prompt API → on-devi
 
 - A `file://` HTML file cannot use `LanguageModel`
 - PWA install caches the UI, not Gemini Nano
-- The extension cannot read other tabs until it is loaded; page AI on other sites needs the extension
+- Analyze and Explain use text you paste into this page
 - No backend and no remote model fallback

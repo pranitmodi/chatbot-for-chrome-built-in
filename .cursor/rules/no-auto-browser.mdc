@@ -1,0 +1,12 @@
+---
+description: Do not open the browser automatically after implementing requested changes
+alwaysApply: true
+---
+
+# Do not auto-open the browser
+
+Never open the browser, Chrome DevTools, or a live preview on your own after making changes the user asked for.
+
+- Do not navigate, screenshot, or click through the app unless the user explicitly asks to verify in the browser.
+- Prefer tests, code review, and describing what changed. Mention that browser verification was skipped because of this preference.
+- If the user later asks to check the UI, then use browser tools for that request only.

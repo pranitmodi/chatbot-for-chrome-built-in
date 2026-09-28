@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import "fake-indexeddb/auto";
 import { mergeStreamChunk, streamPrompt } from "../ai/chrome/streaming.js";
-import { checkChromeAvailability } from "../ai/chrome/availability.js";
+import { checkChromeAvailability, selectAvailabilityPlan } from "../ai/chrome/availability.js";
 import { AVAILABILITY } from "../ai/types.js";
 import { parseMemoryCommand, looksSensitive } from "../features/memory/commands.js";
 import { retrieveMemories } from "../features/memory/retrieval.js";
@@ -34,6 +34,44 @@ describe("streaming", () => {
     const promise = streamPrompt(session, "hi", () => {}, controller.signal);
     controller.abort();
     await expect(promise).rejects.toMatchObject({ name: "AbortError" });
+  });
+});
+
+describe("availability plan", () => {
+  it("keeps an available text model when image is only downloadable", () => {
+    const plan = selectAvailabilityPlan({
+      textStatus: AVAILABILITY.AVAILABLE,
+      imageStatus: AVAILABILITY.DOWNLOADABLE,
+      audioStatus: AVAILABILITY.UNAVAILABLE,
+    });
+    expect(plan.status).toBe(AVAILABILITY.AVAILABLE);
+    expect(plan.image).toBe(false);
+    expect(plan.audio).toBe(false);
+    expect(plan.inputs).toEqual([{ type: "text", languages: ["en"] }]);
+  });
+
+  it("keeps image and audio when all three are available", () => {
+    const plan = selectAvailabilityPlan({
+      textStatus: AVAILABILITY.AVAILABLE,
+      imageStatus: AVAILABILITY.AVAILABLE,
+      audioStatus: AVAILABILITY.AVAILABLE,
+    });
+    expect(plan.status).toBe(AVAILABILITY.AVAILABLE);
+    expect(plan.image).toBe(true);
+    expect(plan.audio).toBe(true);
+    expect(plan.inputs.map((item) => item.type)).toEqual(["text", "image", "audio"]);
+  });
+
+  it("stays downloadable when the text model is not installed", () => {
+    const plan = selectAvailabilityPlan({
+      textStatus: AVAILABILITY.DOWNLOADABLE,
+      imageStatus: AVAILABILITY.DOWNLOADABLE,
+      audioStatus: AVAILABILITY.DOWNLOADABLE,
+    });
+    expect(plan.status).toBe(AVAILABILITY.DOWNLOADABLE);
+    expect(plan.image).toBe(false);
+    expect(plan.audio).toBe(false);
+    expect(plan.inputs).toEqual([{ type: "text", languages: ["en"] }]);
   });
 });
 

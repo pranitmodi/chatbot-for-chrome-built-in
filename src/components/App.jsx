@@ -165,6 +165,7 @@ export function App() {
         downloadProgress={localAi.downloadProgress}
         error={localAi.error}
         prepareModel={localAi.prepareModel}
+        offline={localAi.offline}
         onOpenStatus={() => go("status")}
         onComplete={() => {
           markOnboarded();
@@ -344,6 +345,7 @@ export function App() {
         provider={localAi.provider}
         prepareModel={localAi.prepareModel}
         offline={localAi.offline}
+        shellCached={localAi.shellCached}
         contextUsage={localAi.contextUsage}
       />
     );

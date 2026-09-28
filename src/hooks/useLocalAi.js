@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createProvider } from "../ai/provider.js";
 import { AVAILABILITY, emptyCapabilities } from "../ai/types.js";
-import { categorizeError } from "../ai/errors.js";
+import { categorizeError, needsModelDownloadMessage } from "../ai/errors.js";
+import { isAppShellCached, watchAppShell } from "../pwa/shell.js";
 
 export function useLocalAi() {
   const providerRef = useRef(null);
@@ -16,6 +17,7 @@ export function useLocalAi() {
   const [error, setError] = useState(null);
   const [contextUsage, setContextUsage] = useState(null);
   const [offline, setOffline] = useState(typeof navigator !== "undefined" ? !navigator.onLine : false);
+  const [shellCached, setShellCached] = useState(isAppShellCached);
 
   useEffect(() => {
     const onOnline = () => setOffline(false);
@@ -27,6 +29,8 @@ export function useLocalAi() {
       window.removeEventListener("offline", onOffline);
     };
   }, []);
+
+  useEffect(() => watchAppShell(setShellCached), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +81,14 @@ export function useLocalAi() {
 
   async function prepareModel() {
     setError(null);
+    const modelReady = provider.lastAvailability?.status === AVAILABILITY.AVAILABLE;
+    if (!modelReady && typeof navigator !== "undefined" && navigator.onLine === false) {
+      setError(needsModelDownloadMessage());
+      if (provider.lastAvailability?.status !== AVAILABILITY.DOWNLOADING) {
+        setPhase("downloadable");
+      }
+      return;
+    }
     setPhase("downloading");
     setDownloadProgress(0);
     try {
@@ -107,5 +119,6 @@ export function useLocalAi() {
     setContextUsage,
     prepareModel,
     offline,
+    shellCached,
   };
 }

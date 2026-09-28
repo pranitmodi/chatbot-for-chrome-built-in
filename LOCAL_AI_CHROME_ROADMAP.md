@@ -77,24 +77,22 @@ The product should eventually support:
 
 1. Local Chat
 2. Local Memory
-3. Ask about this page
-4. Explain selected text
-5. Right-click → Ask Local AI
-6. Keyboard shortcut
-7. Summarization
-8. Rewriting
-9. Proofreading
-10. Information extraction
-11. Local Notes
-12. Study Mode
-13. Image understanding
-14. Screenshot understanding
-15. Camera-based understanding
-16. Local conversation search
-17. Local performance diagnostics
-18. Explicit offline verification
-19. Chrome Extension integration
-20. Provider/capability abstraction
+3. Ask about pasted text
+4. Explain pasted text
+5. Keyboard shortcut
+6. Summarization
+7. Rewriting
+8. Proofreading
+9. Information extraction
+10. Local Notes
+11. Study Mode
+12. Image understanding
+13. Screenshot understanding
+14. Camera-based understanding
+15. Local conversation search
+16. Local performance diagnostics
+17. Explicit offline verification
+18. Provider/capability abstraction
 
 ---
 
@@ -207,11 +205,6 @@ Refactor toward a layered architecture.
         study/
         image/
         memory/
-
-      extension/
-        content-script/
-        background/
-        popup/
 
       components/
         ...
@@ -443,55 +436,13 @@ Do not automatically send the entire webpage unless the selected-text workflow e
 
 ---
 
-# 12. Feature 5 — Chrome Extension
-
-Create a Chrome Extension using Manifest V3.
-
-The extension should provide:
-
-- popup UI
-- content script for selected text/page extraction
-- background/service worker where appropriate
-- context-menu integration
-- keyboard shortcut
-- communication with the AI UI
-
-Primary interaction:
-
-    Select text
-      ↓
-    Right click
-      ↓
-    Ask Local AI
-      ↓
-    Local AI UI
-
-Possible context-menu entries:
-
-- Explain with Local AI
-- Summarize with Local AI
-- Rewrite with Local AI
-- Ask Local AI
-
-The extension should reuse the same AI provider and core logic wherever technically possible.
-
-Do not fork the AI implementation into a second unrelated implementation.
-
----
-
 # 13. Feature 6 — Keyboard Shortcut
 
-Provide a configurable shortcut.
-
-Default concept:
+The installed app and localhost tab listen for an in-page shortcut:
 
     Ctrl/Cmd + Shift + Space
 
-The shortcut should open the Local AI interface.
-
-If Chrome extension shortcuts cannot be registered in the current environment, provide the closest supported implementation.
-
-The shortcut should be documented inside settings.
+The shortcut opens Chat in the current page.
 
 ---
 
@@ -735,9 +686,7 @@ Actions:
 - Summarize
 - Convert to notes
 
-For browser screenshots, the extension can capture the visible tab if supported by Chrome permissions.
-
-Ask for permissions only when required.
+A screenshot is attached as an image file in this page. Ask for camera permission only when the user starts a capture.
 
 ---
 
@@ -1445,28 +1394,6 @@ The actual design can differ, but focused actions should be discoverable.
 
 ---
 
-# 47. Chrome Extension UX
-
-The extension should be extremely lightweight.
-
-Possible popup:
-
-    Local AI
-
-    [ Ask anything... ]
-
-    Quick actions:
-    Explain selection
-    Summarize page
-    Rewrite
-    Save to notes
-
-The extension should not duplicate the entire PWA UI unless there is a strong reason.
-
-For larger interactions, open the main application.
-
----
-
 # 48. Context Management
 
 Because Gemini Nano is a local model with finite context, implement context management.
@@ -1571,7 +1498,6 @@ Therefore:
 - avoid repeated processing of the same page
 - debounce search
 - lazy-load nonessential UI
-- keep the extension small
 
 ---
 
@@ -1684,12 +1610,10 @@ Implement in this order.
 
 ## Phase 3 — Chrome Context
 
-14. Page extraction.
-15. Ask about page.
-16. Selected-text actions.
+14. Pasted-text cleaning.
+15. Ask about pasted text.
+16. Explain pasted text.
 17. Keyboard shortcut.
-18. Chrome extension.
-19. Context menu.
 
 ## Phase 4 — AI Toolbox
 
@@ -1754,13 +1678,11 @@ The project should ultimately demonstrate this flow:
       ↓
     Conversation saved locally
 
-### Chrome workflow
+### Explain workflow
 
-    Browse webpage
+    Copy or type a passage
       ↓
-    Select text
-      ↓
-    Right click → Explain with Local AI
+    Open Explain
       ↓
     Local AI responds
       ↓
@@ -1833,13 +1755,12 @@ The project should ultimately demonstrate this flow:
 11. **Do not inject every memory into every prompt.**
 12. **Do not store passwords, tokens, or secrets as memory.**
 13. **Do not build a vector database before it is necessary.**
-14. **Do not duplicate Chrome AI logic between PWA and extension.**
-15. **Keep Chrome-specific APIs isolated.**
-16. **Prefer graceful degradation over broken buttons.**
-17. **Preserve existing working behavior unless there is a strong reason to change it.**
-18. **After every substantial change, run the existing build and relevant tests.**
-19. **Do not invent browser APIs. Verify the API surface against the project's supported Chrome version before implementation.**
-20. **If a requested feature cannot work offline with Chrome's currently available local APIs, explicitly identify that limitation rather than implementing a fake/local-looking workaround.**
+14. **Keep Chrome-specific APIs isolated.**
+15. **Prefer graceful degradation over broken buttons.**
+16. **Preserve existing working behavior unless there is a strong reason to change it.**
+17. **After every substantial change, run the existing build and relevant tests.**
+18. **Do not invent browser APIs. Verify the API surface against the project's supported Chrome version before implementation.**
+19. **If a requested feature cannot work offline with Chrome's currently available local APIs, explicitly identify that limitation rather than implementing a fake/local-looking workaround.**
 
 ---
 

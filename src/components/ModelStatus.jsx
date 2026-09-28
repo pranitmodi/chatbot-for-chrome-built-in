@@ -8,6 +8,9 @@ export function ModelStatus({ phase, downloadProgress, generating, contextUsage,
   if (phase === "unsupported" || phase === "unavailable") {
     label = "Local AI not available";
     tone = "bad";
+  } else if (offline && (phase === "downloadable" || phase === "downloading" || phase === "error")) {
+    label = "Needs one online download";
+    tone = "busy";
   } else if (phase === "downloadable") {
     label = "Local AI not prepared";
     tone = "busy";

@@ -3,6 +3,7 @@ import { CompatibilityPanel } from "./CompatibilityPanel.jsx";
 import { capabilityLabel } from "../ai/capabilities.js";
 import { downloadJson, exportAll, importAll } from "../storage/exportImport.js";
 import { cleanupOrphanAttachments } from "../storage/attachments.js";
+import { isAppShellCached } from "../pwa/shell.js";
 
 function phaseTone(phase) {
   if (phase === "ready") return "ok";
@@ -34,14 +35,23 @@ function phaseSummary(phase, offline) {
   }
   if (phase === "downloading") {
     return {
-      title: "Preparing Local AI",
-      detail: "Chrome is downloading the on-device model.",
+      title: offline ? "Download interrupted" : "Preparing Local AI",
+      detail: offline
+        ? "Reconnect to finish the one-time model download. Chat works offline after the model is ready."
+        : "Chrome is downloading the on-device model.",
     };
   }
   if (phase === "checking") {
     return {
       title: "Checking Local AI",
       detail: "Detecting Prompt API support and model availability.",
+    };
+  }
+  if (offline) {
+    return {
+      title: "Needs one online download",
+      detail:
+        "Chrome still needs to download the on-device model. Reconnect once, finish Prepare local AI, then chat works offline.",
     };
   }
   return {
@@ -70,14 +80,15 @@ function StatusItem({ label, value, tone }) {
   );
 }
 
-function CheckRow({ label, ok, detail }) {
-  const tone = ok ? "ok" : "bad";
+function CheckRow({ label, ok, detail, tone }) {
+  const resolved = tone || (ok ? "ok" : "bad");
+  const value = detail || (ok ? "Yes" : "No");
   return (
-    <div className={`status-check status-${tone}`}>
+    <div className={`status-check status-${resolved}`}>
       <span className="status-dot" aria-hidden="true" />
       <div>
         <strong>{label}</strong>
-        <span>{ok ? "Yes" : "No"}{detail ? ` · ${detail}` : ""}</span>
+        <span>{value}</span>
       </div>
     </div>
   );
@@ -89,6 +100,7 @@ export function StatusView({
   provider,
   prepareModel,
   offline,
+  shellCached,
   contextUsage,
 }) {
   const [offlineResult, setOfflineResult] = useState(null);
@@ -98,23 +110,36 @@ export function StatusView({
   const summary = phaseSummary(phase, offline);
 
   async function testOffline() {
+    const shell = shellCached ?? isAppShellCached();
+    const browserOnline = navigator.onLine;
     const checks = {
-      shell: true,
-      online: navigator.onLine,
+      shell,
+      browserOnline,
       modelReady: phase === "ready",
-      textInput: Boolean(capabilities.textInput || capabilities.localModel),
       inference: false,
       message: "",
     };
+    const cacheNote =
+      "This visit is not served by the installed app cache. Open the production app once while online, then retry offline.";
     try {
       if (phase !== "ready") {
-        checks.message = "Prepare local AI before testing inference.";
+        checks.message = shell
+          ? "Prepare local AI before testing inference."
+          : `${cacheNote} Prepare local AI before testing inference.`;
       } else {
         const text = await provider.prompt("Reply with the single word: pong");
         checks.inference = /pong/i.test(text);
-        checks.message = checks.inference
-          ? "Local AI successfully generated a response. This test does not require the network for inference; your browser may still be online."
-          : `The model responded, but not with the expected word. Response: ${text.slice(0, 80)}`;
+        if (!checks.inference) {
+          checks.message = `The model responded, but not with the expected word. Response: ${text.slice(0, 80)}`;
+        } else if (!shell) {
+          checks.message = `Local inference succeeded. ${cacheNote}`;
+        } else if (browserOnline) {
+          checks.message =
+            "Local inference succeeded. The browser still reports a network connection, so this does not prove the machine is offline.";
+        } else {
+          checks.message =
+            "Local AI responded while the browser reported no network and the app shell was cached.";
+        }
       }
     } catch (error) {
       checks.message = error.message || "Local inference failed.";
@@ -195,11 +220,13 @@ export function StatusView({
         <StatusItem
           label="Offline readiness"
           value={
-            phase === "ready"
-              ? "UI cacheable · model ready"
-              : "UI cacheable · model not ready"
+            shellCached
+              ? phase === "ready"
+                ? "App cached · model ready"
+                : "App cached · model not ready"
+              : "App not cached"
           }
-          tone={phase === "ready" ? "ok" : "warn"}
+          tone={shellCached && phase === "ready" ? "ok" : "warn"}
         />
         <StatusItem
           label="Context"
@@ -265,18 +292,16 @@ export function StatusView({
       {cleanupCount != null ? <p className="muted">{cleanupCount} orphaned attachment(s) removed.</p> : null}
 
       {offlineResult ? (
-        <section className={`status-test status-${offlineResult.inference || (offlineResult.modelReady && offlineResult.textInput) ? (offlineResult.inference ? "ok" : "warn") : "bad"}`}>
+        <section className={`status-test status-${offlineResult.inference ? "ok" : "warn"}`}>
           <h3>Offline test</h3>
           <div className="status-check-list">
-            <CheckRow label="Application shell" ok={offlineResult.shell} />
+            <CheckRow label="App shell cached" ok={offlineResult.shell} detail={offlineResult.shell ? "Yes" : "No"} />
+            <CheckRow label="Local prompt succeeded" ok={offlineResult.inference} detail={offlineResult.inference ? "Yes" : "No"} />
             <CheckRow
-              label="Browser reports online"
-              ok={offlineResult.online}
-              detail={offlineResult.online ? "network may still be up" : "offline"}
+              label="Browser reports a network connection"
+              tone="muted"
+              detail={offlineResult.browserOnline ? "Yes" : "No"}
             />
-            <CheckRow label="Local model available" ok={offlineResult.modelReady} />
-            <CheckRow label="Text input available" ok={offlineResult.textInput} />
-            <CheckRow label="Local inference succeeded" ok={offlineResult.inference} />
           </div>
           <p className="status-test-message">{offlineResult.message}</p>
         </section>

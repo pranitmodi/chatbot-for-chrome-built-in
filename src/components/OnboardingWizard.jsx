@@ -42,6 +42,7 @@ export function OnboardingWizard({
   prepareModel,
   onOpenStatus,
   onComplete,
+  offline,
 }) {
   const stage = onboardingStage(phase);
   const blocked = phase === "unsupported" || phase === "unavailable";
@@ -63,9 +64,15 @@ export function OnboardingWizard({
   function prepareDetail() {
     if (blocked) return "Available after this Chrome can host the on-device model.";
     if (phase === "downloading") {
+      if (offline) {
+        return "Reconnect to finish the one-time model download. Chat works offline after the model is ready.";
+      }
       return percent == null
         ? "Chrome is downloading the on-device model. Keep this tab open."
         : `Chrome is downloading the on-device model… ${percent}%`;
+    }
+    if (offline && !prepared) {
+      return "Chrome still needs one online download. Reconnect, then choose Prepare local AI. Chat works offline after the model is ready.";
     }
     if (phase === "error") {
       return error || "Chrome could not prepare the local model. Try again on an unmetered network.";

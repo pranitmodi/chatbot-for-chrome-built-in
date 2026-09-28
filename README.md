@@ -4,7 +4,7 @@ A static website for **private, on-device AI** using Chrome's built-in Prompt AP
 
 There is no AI backend, no OpenAI / Anthropic / Gemini API key, and no account. Chat, notes, memory, and the text tools all run in this one page when Local AI is active.
 
-Everything happens in a single tab. Paste or type the text you want to work on, or attach a file, image, or audio clip. The app never needs another tab, a browser extension, or access to your other pages.
+Everything happens in a single tab. Paste or type the text you want to work on, or attach a file, image, or audio clip. The app never needs another tab or access to your other pages.
 
 AI processing happens on your device when Local AI is active. This app doesn't send your prompts to our AI server. Do not read that as "nothing ever leaves your device" — Chrome may still download the on-device model, and the browser itself has its own network behavior.
 
@@ -80,9 +80,9 @@ The Vite `base` is `./`, so relative asset URLs work from a subdirectory as well
 
 The production build is a **Progressive Web App**. After you deploy it over **HTTPS**, Chrome desktop can install it (omnibox install icon, or **Install app** in the header when Chrome offers it). The installed app is still Chrome. That is how it keeps access to `LanguageModel`.
 
-Install does **not** bundle Gemini Nano. It caches this chat UI. Chrome downloads the on-device model separately the first time the origin uses the Prompt API (unmetered network, enough disk). After both the PWA and the model are present, you can open the installed app and chat **without the internet**.
+Install does **not** bundle Gemini Nano. It caches this chat UI. Chrome downloads the on-device model separately the first time the origin uses the Prompt API (unmetered network, enough disk). After both the PWA and the text model are present, you can open the installed app and chat **without the internet**. Image and audio stay off until those modalities are already downloaded; a pending image or audio download does not block text chat.
 
-A first visit still needs the network to load or install the app. If the service worker is serving the shell offline but the Prompt API is missing or the model was never downloaded, the app shows the numbered setup steps — it does not fake "AI ready."
+A first visit still needs the network to load the app and, if the model is not installed, to finish that one-time download. `npm run dev` does not install the offline app shell. Serve the production `dist/` build over localhost or HTTPS, load it once while online, then the cached app can open without a network. If the service worker is serving the shell offline but the Prompt API is missing or the model was never downloaded, the app shows the numbered setup steps — it does not fake "AI ready."
 
 ### Why a downloaded HTML file is not enough
 
