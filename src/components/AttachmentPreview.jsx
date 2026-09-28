@@ -1,4 +1,4 @@
-import { formatBytes } from "../ai/multimodal.js";
+import { attachmentMetaLabel } from "../ai/multimodal.js";
 import { AttachmentThumb } from "./AttachmentThumb.jsx";
 
 export function AttachmentPreview({ attachments, onRemove }) {
@@ -11,13 +11,7 @@ export function AttachmentPreview({ attachments, onRemove }) {
           <AttachmentThumb attachment={attachment} />
           <div className="meta">
             <strong title={attachment.name}>{attachment.name}</strong>
-            <span>
-              {attachment.kind === "video"
-                ? `${attachment.frameCount} frames will be analyzed · ${formatBytes(attachment.size)}`
-                : attachment.kind === "audio"
-                  ? `Audio · ${formatBytes(attachment.size)}`
-                  : formatBytes(attachment.size)}
-            </span>
+            <span>{attachmentMetaLabel(attachment)}</span>
           </div>
           <button type="button" onClick={() => onRemove(attachment.id)} aria-label={`Remove ${attachment.name}`}>
             Remove

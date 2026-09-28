@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { renderMarkdown } from "../ai/markdown.js";
-import { formatBytes } from "../ai/multimodal.js";
+import { attachmentMetaLabel } from "../ai/multimodal.js";
 import { AttachmentThumb } from "./AttachmentThumb.jsx";
 
 function AttachmentList({ attachments }) {
@@ -12,11 +12,7 @@ function AttachmentList({ attachments }) {
           <AttachmentThumb attachment={attachment} />
           <div className="meta">
             <strong>{attachment.name}</strong>
-            <span>
-              {attachment.kind === "video"
-                ? `${attachment.frameCount} frames · ${formatBytes(attachment.size)}`
-                : formatBytes(attachment.size)}
-            </span>
+            <span>{attachmentMetaLabel(attachment)}</span>
           </div>
         </div>
       ))}

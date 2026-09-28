@@ -7,6 +7,7 @@ import {
   classifyFile,
   formatTextDocument,
   ingestFiles,
+  promptTextFromAttachments,
   readTextDocument,
 } from "../ai/multimodal.js";
 import { AVAILABILITY } from "../ai/types.js";
@@ -101,13 +102,18 @@ describe("text documents", () => {
     expect(appendDocumentsToDraft("Ask about this:", [document])).toContain("Hello from a note");
   });
 
-  it("ingests text into documents and leaves media for attachments", async () => {
+  it("keeps text documents as attachments instead of draft text", async () => {
     const result = await ingestFiles(
       [new File(["body"], "spec.txt", { type: "text/plain" })],
       { image: false, audio: false, videoFrames: false },
     );
-    expect(result.attachments).toEqual([]);
-    expect(result.documents).toEqual([{ name: "spec.txt", text: "body" }]);
+    expect(result.attachments).toHaveLength(1);
+    expect(result.attachments[0]).toMatchObject({
+      kind: "text",
+      name: "spec.txt",
+      text: "body",
+    });
+    expect(promptTextFromAttachments(result.attachments)).toBe("--- spec.txt ---\nbody\n");
   });
 });
 
@@ -132,6 +138,11 @@ describe("memory commands", () => {
     expect(parseMemoryCommand("What do you remember about me?").type).toBe("list");
     expect(parseMemoryCommand("Forget that I prefer concise answers.").type).toBe("forget");
     expect(parseMemoryCommand("Don't remember this conversation.").type).toBe("opt_out");
+    expect(
+      parseMemoryCommand(
+        "--- notes.md ---\nThe app supports: Don't remember this conversation.\nPlease summarize this file.",
+      ),
+    ).toBe(null);
   });
 
   it("rejects secrets", () => {

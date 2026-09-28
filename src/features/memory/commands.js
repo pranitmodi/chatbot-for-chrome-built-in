@@ -24,8 +24,8 @@ export function parseMemoryCommand(text) {
   }
 
   if (
-    /don'?t remember (anything|this) (from )?this conversation/i.test(raw) ||
-    /don'?t remember this conversation/i.test(raw)
+    /^(?:please\s+)?don'?t remember (?:anything|this)(?: from)? this conversation\.?$/i.test(raw) ||
+    /^(?:please\s+)?don'?t remember this conversation\.?$/i.test(raw)
   ) {
     return { type: "opt_out" };
   }

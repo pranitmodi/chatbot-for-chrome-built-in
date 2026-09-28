@@ -119,6 +119,37 @@ export function appendDocumentsToDraft(draft, documents) {
   return `${String(draft).trimEnd()}\n\n${blocks}`;
 }
 
+export async function prepareTextFile(file) {
+  const document = await readTextDocument(file);
+  return {
+    id: crypto.randomUUID(),
+    kind: "text",
+    name: document.name,
+    size: file.size,
+    previewUrl: "",
+    modelValue: new Blob([document.text], { type: "text/plain" }),
+    text: document.text,
+    frames: null,
+    frameCount: null,
+  };
+}
+
+export function promptTextFromAttachments(attachments) {
+  return (attachments || [])
+    .filter((attachment) => attachment.kind === "text" && attachment.text)
+    .map((attachment) => formatTextDocument(attachment.name, attachment.text))
+    .join("\n");
+}
+
+export function attachmentMetaLabel(attachment) {
+  if (attachment.kind === "video") {
+    return `${attachment.frameCount} frames will be analyzed · ${formatBytes(attachment.size)}`;
+  }
+  if (attachment.kind === "audio") return `Audio · ${formatBytes(attachment.size)}`;
+  if (attachment.kind === "text") return `Document · ${formatBytes(attachment.size)}`;
+  return formatBytes(attachment.size);
+}
+
 export function validateFileSize(file) {
   if (file.size > MAX_FILE_BYTES) {
     throw Object.assign(
@@ -353,7 +384,7 @@ export async function prepareFiles(files, capabilities) {
 }
 
 /**
- * Ingest picker/drop files for chat: media becomes attachments, text docs become draft content.
+ * Ingest picker or drop files for chat. Text documents stay attachments; their text is not shown in the draft.
  * @param {FileList | File[]} files
  * @param {import("./types.js").Capabilities | Record<string, boolean>} capabilities
  * @param {{ maxAttachments?: number }} [options]
@@ -361,18 +392,13 @@ export async function prepareFiles(files, capabilities) {
 export async function ingestFiles(files, capabilities, options = {}) {
   const list = [...(files || [])];
   const maxAttachments = options.maxAttachments ?? MAX_ATTACHMENTS;
-  const mediaFiles = list.filter((file) => {
-    const kind = classifyFile(file);
-    return kind === "image" || kind === "audio" || kind === "video";
-  });
-  if (mediaFiles.length > maxAttachments) {
-    throw Object.assign(new Error(`You can attach up to ${MAX_ATTACHMENTS} media items.`), {
+  if (list.length > maxAttachments) {
+    throw Object.assign(new Error(`You can attach up to ${MAX_ATTACHMENTS} items.`), {
       name: "TooManyAttachmentsError",
     });
   }
 
   const attachments = [];
-  const documents = [];
   for (const file of list) {
     const kind = classifyFile(file);
     if (!kind) {
@@ -384,7 +410,7 @@ export async function ingestFiles(files, capabilities, options = {}) {
       );
     }
     if (kind === "text") {
-      documents.push(await readTextDocument(file));
+      attachments.push(await prepareTextFile(file));
       continue;
     }
     if (kind === "image") {
@@ -413,7 +439,7 @@ export async function ingestFiles(files, capabilities, options = {}) {
       attachments.push(await extractVideoFrames(file));
     }
   }
-  return { attachments, documents };
+  return { attachments };
 }
 
 export function attachmentToMediaParts(attachment) {

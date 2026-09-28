@@ -4,11 +4,11 @@ import { categorizeError } from "../ai/errors.js";
 import { buildSystemPrompt } from "../ai/systemPrompt.js";
 import {
   MAX_ATTACHMENTS,
-  appendDocumentsToDraft,
   attachmentToMediaParts,
   ingestFiles,
   prepareCameraCapture,
   prepareMicrophoneCapture,
+  promptTextFromAttachments,
   revokeAll,
   revokeAttachment,
 } from "../ai/multimodal.js";
@@ -199,14 +199,11 @@ export function Chat({
     if (!files.length) return;
     setFileError(null);
     try {
-      const { attachments: prepared, documents } = await ingestFiles(files, capabilities, {
+      const { attachments: prepared } = await ingestFiles(files, capabilities, {
         maxAttachments: MAX_ATTACHMENTS - attachments.length,
       });
       if (prepared.length) {
         setAttachments((current) => [...current, ...prepared]);
-      }
-      if (documents.length) {
-        setDraft((current) => appendDocumentsToDraft(current, documents));
       }
     } catch (caught) {
       setFileError(caught.message || "Couldn't attach that file.");
@@ -345,6 +342,8 @@ export function Chat({
     }
 
     const media = outgoingAttachments.flatMap(attachmentToMediaParts);
+    const documentText = promptTextFromAttachments(outgoingAttachments);
+    const promptText = [text, documentText].filter(Boolean).join("\n\n");
     setDraft("");
     setAttachments([]);
     setError(null);
@@ -384,7 +383,7 @@ export function Chat({
       const memoryPrefix = memories.length
         ? `${buildSystemPrompt({ memories }).split("Guidelines:")[0]}\n`
         : "";
-      const input = buildPromptInput(memoryPrefix ? `${text}` : text, media);
+      const input = buildPromptInput(memoryPrefix ? promptText : promptText, media);
       await provider.streamText(
         input,
         (nextText) => {
