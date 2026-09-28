@@ -3,6 +3,7 @@ import { categorizeError } from "../ai/errors.js";
 import { createNote, deriveNoteTitle } from "../storage/notes.js";
 import { RichInput, RichResult } from "./RichDoc.jsx";
 import { openDraft } from "../features/drafts.js";
+import { trackEvent } from "../analytics.js";
 import {
   getToolMode,
   rememberToolResult,
@@ -66,7 +67,7 @@ export function ToolWorkspace({
     setLiveOutput("");
     setBusy(true);
     setError(null);
-    let failed = false;
+    let status = "success";
     try {
       await provider.createSession();
       const prompt = buildPrompt(sourceText, sourceMode);
@@ -79,11 +80,19 @@ export function ToolWorkspace({
         controller.signal,
       );
     } catch (caught) {
-      if (caught?.name !== "AbortError") {
-        failed = true;
+      if (caught?.name === "AbortError") {
+        status = "aborted";
+      } else {
+        status = "error";
         setError(categorizeError(caught) || "Couldn't run that locally.");
       }
     } finally {
+      trackEvent("tool_run", {
+        tool_id: toolId,
+        ...(sourceMode ? { mode: sourceMode } : {}),
+        status,
+      });
+      const failed = status === "error";
       if (abortRef.current === controller) abortRef.current = null;
       if (!unmountedRef.current && !(failed && !outputRef.current)) {
         rememberToolResult(toolId, sourceMode, sourceText, outputRef.current);
@@ -193,7 +202,7 @@ export function ToolWorkspace({
                         title: deriveNoteTitle(output),
                         content: output,
                         sourceType: "manual",
-                      })
+                      }).then(() => trackEvent("note_create", { source: "manual" }))
                     }
                   >
                     Save note

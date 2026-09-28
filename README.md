@@ -6,7 +6,7 @@ There is no AI backend, no OpenAI / Anthropic / Gemini API key, and no account. 
 
 Everything happens in a single tab. Paste or type the text you want to work on, or attach a text document, image, audio, or video clip. You can also drag a file onto the chat. Text documents show as attachments; their contents are sent to the on-device model and are not pasted into the message. The app never needs another tab or access to your other pages.
 
-AI processing happens on your device when Local AI is active. This app doesn't send your prompts to our AI server. Do not read that as "nothing ever leaves your device" — Chrome may still download the on-device model, and the browser itself has its own network behavior.
+AI processing happens on your device when Local AI is active. This app doesn't send your prompts to our AI server. Do not read that as "nothing ever leaves your device" — Chrome may still download the on-device model, the browser has its own network behavior, and the production site sends anonymous usage events to Google Analytics.
 
 ## Project status
 
@@ -102,7 +102,7 @@ The Prompt API only runs in a **secure context**: `https://` or `http://localhos
 
 An HTML file also cannot launch Chrome and attach to the built-in model. Wrapping the UI in Electron or a generic Mac `.app` would not get Gemini Nano either — that stack lives in Google Chrome.
 
-There are no environment variables to configure.
+The production build reads one public setting, `VITE_GA_MEASUREMENT_ID`, from `.env.production`. It is a Google Analytics measurement ID, not an AI API key.
 
 ## How model availability is detected
 
@@ -200,6 +200,7 @@ If `LanguageModel` is missing or availability is `unavailable`, chat is disabled
 - Attachments are read with `File` / `Blob` APIs, resized locally, and stored as IndexedDB Blobs on this device only.
 - Conversations, notes, and memories persist in IndexedDB on this browser profile. Export/import is JSON you control. There is no account backend.
 - The in-app claim is: **AI processing happens on your device when Local AI is active.** Broader claims such as "nothing ever leaves your device" are not used.
+- Production builds load Google Analytics and send anonymous events for pages and features: the view name, tool, mode, and whether an action succeeded. Those events do not include prompts, replies, notes, memories, search text, or file names.
 
 ## Tools
 

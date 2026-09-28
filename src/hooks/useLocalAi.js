@@ -3,6 +3,7 @@ import { createProvider } from "../ai/provider.js";
 import { AVAILABILITY, emptyCapabilities } from "../ai/types.js";
 import { categorizeError, needsModelDownloadMessage } from "../ai/errors.js";
 import { isAppShellCached, watchAppShell } from "../pwa/shell.js";
+import { trackEvent, trackModelReady } from "../analytics.js";
 
 export function useLocalAi() {
   const providerRef = useRef(null);
@@ -31,6 +32,10 @@ export function useLocalAi() {
   }, []);
 
   useEffect(() => watchAppShell(setShellCached), []);
+
+  useEffect(() => {
+    if (phase === "ready") trackModelReady();
+  }, [phase]);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +96,7 @@ export function useLocalAi() {
     }
     setPhase("downloading");
     setDownloadProgress(0);
+    trackEvent("model_prepare");
     try {
       await provider.createSession({
         onDownloadProgress: (loaded) => {

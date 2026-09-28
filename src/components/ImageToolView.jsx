@@ -14,6 +14,7 @@ import { deriveNoteTitle } from "../storage/notes.js";
 import { AttachmentPreview } from "./AttachmentPreview.jsx";
 import { CameraCapture } from "./CameraCapture.jsx";
 import { RichResult } from "./RichDoc.jsx";
+import { trackEvent } from "../analytics.js";
 
 const ACTIONS = [
   { id: "describe", label: "Describe" },
@@ -65,14 +66,19 @@ export function ImageToolView({ provider, phase, prepareModel, capabilities }) {
     setBusy(true);
     setError(null);
     setOutput("");
+    let status = "success";
     try {
       await provider.createSession();
       const media = attachments.flatMap(attachmentToMediaParts);
       const prompt = buildPromptInput(buildImagePrompt(action, question), media);
       await provider.streamEphemeral(prompt, setOutput);
     } catch (caught) {
-      setError(categorizeError(caught) || "Couldn't analyze that image.");
+      status = caught?.name === "AbortError" ? "aborted" : "error";
+      if (status === "error") {
+        setError(categorizeError(caught) || "Couldn't analyze that image.");
+      }
     } finally {
+      trackEvent("tool_run", { tool_id: "image", mode: action, status });
       setBusy(false);
     }
   }
@@ -165,7 +171,7 @@ export function ImageToolView({ provider, phase, prepareModel, capabilities }) {
             <button
               type="button"
               className="text-btn"
-              onClick={() => createNote({ title: deriveNoteTitle(output), content: output, sourceType: "image" })}
+              onClick={() => createNote({ title: deriveNoteTitle(output), content: output, sourceType: "image" }).then(() => trackEvent("note_create", { source: "image" }))}
             >
               Save as note
             </button>

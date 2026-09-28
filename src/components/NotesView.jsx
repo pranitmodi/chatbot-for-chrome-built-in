@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createNote, deleteNote, listNotes, updateNote } from "../storage/notes.js";
 import { openDraft } from "../features/drafts.js";
+import { trackEvent } from "../analytics.js";
 
 export function NotesView() {
   const [notes, setNotes] = useState([]);
@@ -49,6 +50,7 @@ export function NotesView() {
             className="text-btn"
             onClick={async () => {
               const note = await createNote({ title: "Untitled note", content: "", sourceType: "manual" });
+              trackEvent("note_create", { source: "manual" });
               await refresh();
               setActiveId(note.id);
               setTitle(note.title);

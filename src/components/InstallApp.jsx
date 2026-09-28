@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { trackEvent } from "../analytics.js";
 
 function isStandalone() {
   return (
@@ -36,6 +37,7 @@ export function useInstallPrompt() {
     const choice = await installEvent.userChoice;
     if (choice.outcome === "accepted") {
       setInstalled(true);
+      trackEvent("app_install");
     }
     setInstallEvent(null);
   }

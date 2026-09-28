@@ -4,6 +4,7 @@ import { capabilityLabel } from "../ai/capabilities.js";
 import { downloadJson, exportAll, importAll } from "../storage/exportImport.js";
 import { cleanupOrphanAttachments } from "../storage/attachments.js";
 import { isAppShellCached } from "../pwa/shell.js";
+import { analyticsConfigured, trackEvent } from "../analytics.js";
 
 function phaseTone(phase) {
   if (phase === "ready") return "ok";
@@ -173,6 +174,12 @@ export function StatusView({
           Your prompts are processed using the local AI available in Chrome. The app does not need a
           cloud AI API for Local AI inference.
         </p>
+        {analyticsConfigured() ? (
+          <p>
+            Usage: Google Analytics receives which page and feature you use. Prompts, replies, notes,
+            and files stay on this device.
+          </p>
+        ) : null}
       </section>
 
       <dl className="status-grid">
@@ -261,7 +268,12 @@ export function StatusView({
           type="button"
           className="text-btn"
           onClick={async () => {
-            downloadJson(`local-ai-backup-${Date.now()}.json`, await exportAll());
+            try {
+              downloadJson(`local-ai-backup-${Date.now()}.json`, await exportAll());
+              trackEvent("data_export", { status: "success" });
+            } catch {
+              trackEvent("data_export", { status: "error" });
+            }
           }}
         >
           Export all
@@ -274,9 +286,14 @@ export function StatusView({
             accept="application/json"
             onChange={async (event) => {
               const file = event.target.files?.[0];
-              if (!file) return;
-              await importAll(JSON.parse(await file.text()));
               event.target.value = "";
+              if (!file) return;
+              try {
+                await importAll(JSON.parse(await file.text()));
+                trackEvent("data_import", { status: "success" });
+              } catch {
+                trackEvent("data_import", { status: "error" });
+              }
             }}
           />
         </label>

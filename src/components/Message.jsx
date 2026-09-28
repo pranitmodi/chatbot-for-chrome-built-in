@@ -2,6 +2,7 @@ import { useState } from "react";
 import { renderMarkdown } from "../ai/markdown.js";
 import { attachmentMetaLabel } from "../ai/multimodal.js";
 import { AttachmentThumb } from "./AttachmentThumb.jsx";
+import { trackEvent } from "../analytics.js";
 
 function AttachmentList({ attachments }) {
   if (!attachments?.length) return null;
@@ -65,6 +66,7 @@ export function Message({ message, onSaveNote, onRegenerate, onContinue }) {
 
   async function copy() {
     await navigator.clipboard.writeText(message.text);
+    trackEvent("chat_copy");
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1200);
   }

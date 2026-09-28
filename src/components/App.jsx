@@ -20,6 +20,7 @@ import {
   resumeAfterSetup,
 } from "../features/onboarding.js";
 import { draftFromCurrentRoute } from "../features/drafts.js";
+import { trackEvent, trackPageView } from "../analytics.js";
 import { OnboardingWizard } from "./OnboardingWizard.jsx";
 import {
   deleteConversation,
@@ -69,6 +70,10 @@ export function App() {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
+
+  useEffect(() => {
+    trackPageView(view);
+  }, [view]);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 720px)");
@@ -170,6 +175,7 @@ export function App() {
         onComplete={() => {
           markOnboarded();
           setOnboarded(true);
+          trackEvent("onboarding_complete");
           go(resumeAfterSetup(view));
         }}
       />
@@ -419,7 +425,11 @@ export function App() {
             <button
               type="button"
               className="icon-btn ghost"
-              onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+              onClick={() => {
+                const next = theme === "dark" ? "light" : "dark";
+                trackEvent("theme_change", { theme: next });
+                setTheme(next);
+              }}
               aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               title="Toggle theme"
             >

@@ -36,6 +36,7 @@ import { parseMemoryCommand, looksSensitive, inferMemoryCandidate } from "../fea
 import { retrieveMemories } from "../features/memory/retrieval.js";
 import { compactMessages, messagesToInitialPrompts } from "../features/chat/context.js";
 import { draftFromCurrentRoute } from "../features/drafts.js";
+import { trackEvent } from "../analytics.js";
 import { setHash } from "../features/navigation.js";
 import { CompatibilityPanel } from "./CompatibilityPanel.jsx";
 import { Composer } from "./Composer.jsx";
@@ -252,6 +253,7 @@ export function Chat({
   }
 
   async function handleMemoryCommand(command, activeId) {
+    trackEvent("memory_command", { command: command.type });
     if (command.type === "remember") {
       if (looksSensitive(command.text)) {
         setError("That looks like a secret. Local AI will not store passwords, tokens, or keys as memory.");
@@ -317,7 +319,7 @@ export function Chat({
     return false;
   }
 
-  async function sendMessage(textOverride) {
+  async function sendMessage(textOverride, { regenerated = false } = {}) {
     const text = (textOverride ?? draft).trim();
     if ((!text && !attachments.length) || generating || phase !== "ready") return;
 
@@ -363,6 +365,11 @@ export function Chat({
     const assistantUi = toUiMessage({ ...assistant, attachments: [] });
 
     setMessages((current) => [...current, toUiMessage(userMessage), assistantUi]);
+    trackEvent("chat_message", {
+      has_attachment: outgoingAttachments.length > 0,
+      attachment_count: outgoingAttachments.length,
+      regenerated,
+    });
     setGenerating(true);
 
     if ((await getSetting("memoryEnabled", true)) && rememberEnabled) {
@@ -437,6 +444,7 @@ export function Chat({
   }
 
   function stopGeneration() {
+    trackEvent("chat_stop");
     abortRef.current?.abort();
   }
 
@@ -447,6 +455,8 @@ export function Chat({
       sourceType: "chat",
       sourceReference: conversationId,
     });
+    trackEvent("chat_save_note");
+    trackEvent("note_create", { source: "chat" });
   }
 
   function continueFromMessage(message) {
@@ -457,7 +467,7 @@ export function Chat({
     const index = messages.findIndex((item) => item.id === message.id);
     const previous = index > 0 ? messages[index - 1] : null;
     if (previous?.role === "user" && !generating) {
-      sendMessage(previous.text);
+      sendMessage(previous.text, { regenerated: true });
     }
   }
 
